@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Send, Plus, Users, Search, MoreVertical, ArrowLeft } from 'lucide-react'
+import { Send, Plus, Users, Search, MoreVertical, ArrowLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,15 +19,9 @@ import { LoadingSpinner } from '@/components/loading-spinner'
 import { cn } from '@/lib/utils'
 import { Group, Message, CreateGroupRequest } from '@/types/messaging'
 import { TypingIndicator } from '@/components/typing-indicator'
+import { EnhancedMemberSelector } from '@/components/enhanced-member-selector'
 
-// Mock employee data - in a real app, this would come from the employees API
-const MOCK_EMPLOYEES = [
-  { id: '90145293', name: 'Nayyar Khurshid', designation: 'Software Developer', dept: 'IT' },
-  { id: '90145294', name: 'John Doe', designation: 'Manager', dept: 'HR' },
-  { id: '90145295', name: 'Jane Smith', designation: 'Analyst', dept: 'Finance' },
-  { id: '90145296', name: 'Mike Johnson', designation: 'Engineer', dept: 'Operations' },
-  { id: '90145297', name: 'Sarah Wilson', designation: 'Coordinator', dept: 'Admin' }
-]
+// Removed mock employees - now using real data from EnhancedMemberSelector
 
 interface RealDataMessagingAppProps {
   currentUserId?: string
@@ -42,9 +36,10 @@ export function RealDataMessagingApp({
   const [messageText, setMessageText] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateGroup, setShowCreateGroup] = useState(false)
+  const [showMemberSelector, setShowMemberSelector] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
   const [newGroupDescription, setNewGroupDescription] = useState('')
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
+  const [selectedMembers, setSelectedMembers] = useState<any[]>([])
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [showGroupsList, setShowGroupsList] = useState(true)
@@ -144,7 +139,7 @@ export function RealDataMessagingApp({
       const groupData: CreateGroupRequest = {
         name: newGroupName,
         description: newGroupDescription || undefined,
-        memberIds: selectedMembers
+        memberIds: selectedMembers.map(m => m.employeeId) // Use employee IDs
       }
 
       await createGroup(groupData)
@@ -159,13 +154,10 @@ export function RealDataMessagingApp({
     }
   }
 
-  // Handle member selection for new group
-  const handleMemberToggle = (memberId: string) => {
-    setSelectedMembers(prev => 
-      prev.includes(memberId) 
-        ? prev.filter(id => id !== memberId)
-        : [...prev, memberId]
-    )
+  // Handle member selection
+  const handleMembersSelected = (employees: any[]) => {
+    setSelectedMembers(employees)
+    setShowMemberSelector(false)
   }
 
   // Filter groups based on search
@@ -197,15 +189,16 @@ export function RealDataMessagingApp({
   }
 
   return (
-    <Card className={cn("w-full max-w-6xl mx-auto h-[600px] flex flex-col", className)}>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between">
-          <span>Messaging</span>
-          {loading && <LoadingSpinner size="sm" />}
-        </CardTitle>
-      </CardHeader>
+    <>
+      <Card className={cn("w-full max-w-6xl mx-auto h-[600px] flex flex-col", className)}>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between">
+            <span>Messaging</span>
+            {loading && <LoadingSpinner size="sm" />}
+          </CardTitle>
+        </CardHeader>
 
-      <CardContent className="flex-1 flex p-0 overflow-hidden">
+        <CardContent className="flex-1 flex p-0 overflow-hidden">
         {/* Groups Sidebar */}
         <div className={cn(
           "w-80 border-r flex flex-col",
@@ -255,33 +248,41 @@ export function RealDataMessagingApp({
                   </div>
                   <div>
                     <Label>Select Members *</Label>
-                    <div className="max-h-48 overflow-y-auto space-y-2 mt-2">
-                      {MOCK_EMPLOYEES.filter(emp => emp.id !== currentUserId).map(employee => (
-                        <div key={employee.id} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={employee.id}
-                            checked={selectedMembers.includes(employee.id)}
-                            onChange={() => handleMemberToggle(employee.id)}
-                            className="rounded border-gray-300"
-                          />
-                          <Label htmlFor={employee.id} className="flex-1 cursor-pointer">
-                            <div className="flex items-center space-x-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback className="text-xs">
-                                  {getInitials(employee.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="text-sm font-medium">{employee.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {employee.designation} - {employee.dept}
-                                </p>
+                    <div className="mt-2">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowMemberSelector(true)}
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        {selectedMembers.length > 0 
+                          ? `${selectedMembers.length} members selected`
+                          : 'Select members'
+                        }
+                      </Button>
+                      {selectedMembers.length > 0 && (
+                        <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                          {selectedMembers.map((member) => (
+                            <div key={member.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                              <div className="flex items-center space-x-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-xs">
+                                    {member.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">{member.name}</span>
                               </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedMembers(prev => prev.filter(m => m.id !== member.id))}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
                             </div>
-                          </Label>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                   <div className="flex justify-end space-x-2">
@@ -426,13 +427,10 @@ export function RealDataMessagingApp({
               {/* Typing Indicator */}
               {typingUsers.length > 0 && (
                 <div className="px-4 py-2 border-t">
-                  <TypingIndicator users={typingUsers.map(userId => {
-                    const employee = MOCK_EMPLOYEES.find(e => e.id === userId)
-                    return {
-                      userId,
-                      userName: employee?.name || userId
-                    }
-                  })} />
+                  <TypingIndicator users={typingUsers.map(userId => ({
+                    userId,
+                    userName: userId // Just use userId for now, could be enhanced with employee lookup
+                  }))} />
                 </div>
               )}
 
@@ -493,5 +491,16 @@ export function RealDataMessagingApp({
         </div>
       </CardContent>
     </Card>
+
+    {/* Enhanced Member Selector */}
+    <EnhancedMemberSelector
+      isOpen={showMemberSelector}
+      onClose={() => setShowMemberSelector(false)}
+      onConfirm={handleMembersSelected}
+      initialSelected={selectedMembers}
+      title="Select Group Members"
+      description="Choose employees to add to your group"
+    />
+    </>
   )
 }
