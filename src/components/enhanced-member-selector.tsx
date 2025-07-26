@@ -106,10 +106,16 @@ export function EnhancedMemberSelector({
   // Supabase data
   const [employees, setEmployees] = useState<Employee[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
   const [departments, setDepartments] = useState<{value: string, count: number}[]>([])
   const [locations, setLocations] = useState<{value: string, count: number}[]>([])
   const [grades, setGrades] = useState<{value: string, count: number}[]>([])
   const [categories, setCategories] = useState<{value: string, count: number}[]>([])
+
+  const PAGE_SIZE = 50
 
   const { getUserStatus } = useUserPresence()
   const isMobile = useIsMobile()
@@ -123,16 +129,24 @@ export function EnhancedMemberSelector({
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // Fetch employees from Supabase
-  const fetchEmployees = useCallback(async () => {
+  // Fetch employees from Supabase with pagination
+  const fetchEmployees = useCallback(async (page = 0, reset = false) => {
     try {
-      setIsLoading(true)
+      if (reset) {
+        setIsLoading(true)
+        setCurrentPage(0)
+      } else {
+        setIsLoadingMore(true)
+      }
+      
+      const from = page * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
       
       let query = supabase
         .from("employees")
-        .select("*")
+        .select("*", { count: 'exact' })
         .order("name", { ascending: true })
-        .limit(500) // Limit for member selection
+        .range(from, to)
 
       // Apply search filter
       if (debouncedSearchQuery && debouncedSearchQuery.trim()) {
@@ -157,7 +171,7 @@ export function EnhancedMemberSelector({
         query = query.eq('gender', filters.gender)
       }
 
-      const { data, error } = await query
+      const { data, error, count } = await query
 
       if (error) {
         console.error("Error fetching employees:", error)
@@ -165,14 +179,31 @@ export function EnhancedMemberSelector({
       }
 
       const transformedEmployees = (data || []).map(transformEmployee)
-      setEmployees(transformedEmployees)
+      
+      if (reset) {
+        setEmployees(transformedEmployees)
+      } else {
+        setEmployees(prev => [...prev, ...transformedEmployees])
+      }
+      
+      setTotalCount(count || 0)
+      setHasMore((data?.length || 0) === PAGE_SIZE && (from + PAGE_SIZE) < (count || 0))
+      setCurrentPage(page)
       
     } catch (error) {
       console.error("Error fetching employees:", error)
     } finally {
       setIsLoading(false)
+      setIsLoadingMore(false)
     }
   }, [debouncedSearchQuery, filters])
+
+  // Load more function
+  const loadMore = useCallback(() => {
+    if (!isLoadingMore && hasMore) {
+      fetchEmployees(currentPage + 1, false)
+    }
+  }, [currentPage, fetchEmployees, hasMore, isLoadingMore])
 
   // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
@@ -244,7 +275,7 @@ export function EnhancedMemberSelector({
   // Initial data fetch
   useEffect(() => {
     if (isOpen) {
-      fetchEmployees()
+      fetchEmployees(0, true)
       fetchFilterOptions()
     }
   }, [isOpen, fetchEmployees, fetchFilterOptions])
@@ -252,7 +283,7 @@ export function EnhancedMemberSelector({
   // Refetch when filters change
   useEffect(() => {
     if (isOpen) {
-      fetchEmployees()
+      fetchEmployees(0, true)
     }
   }, [debouncedSearchQuery, filters, fetchEmployees])
 
@@ -377,11 +408,6 @@ export function EnhancedMemberSelector({
               <DialogTitle className="flex items-center space-x-2">
                 <UserPlus className="w-5 h-5" />
                 <span>{title}</span>
-                {maxSelection && (
-                  <Badge variant="outline" className="ml-2">
-                    {selectedEmployees.length}/{maxSelection}
-                  </Badge>
-                )}
               </DialogTitle>
               <p className="text-muted-foreground">{description}</p>
             </DialogHeader>
@@ -543,7 +569,13 @@ export function EnhancedMemberSelector({
               {/* Results Summary and Bulk Actions */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm font-medium">{filteredAndSortedEmployees.length} results</span>
+                  <span className="text-sm font-medium">
+                    {totalCount > 0 ? (
+                      <>{employees.length} of {totalCount} employees loaded</>
+                    ) : (
+                      <>{filteredAndSortedEmployees.length} results</>
+                    )}
+                  </span>
                   <Button variant="ghost" size="sm" onClick={handleSelectAll} className="text-sm">
                     {filteredAndSortedEmployees.every((emp) =>
                       selectedEmployees.some((selected) => selected.id === emp.id),
@@ -554,7 +586,6 @@ export function EnhancedMemberSelector({
                 </div>
                 <div className="text-sm text-muted-foreground">
                   {selectedEmployees.length} selected
-                  {maxSelection && ` of ${maxSelection}`}
                 </div>
               </div>
             </div>
@@ -636,6 +667,34 @@ export function EnhancedMemberSelector({
                     <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                     <p className="text-muted-foreground">No employees found</p>
                     <p className="text-sm text-muted-foreground mt-1">Try adjusting your search or filters</p>
+                  </div>
+                )}
+
+                {/* Load More Button */}
+                {!isLoading && hasMore && filteredAndSortedEmployees.length > 0 && (
+                  <div className="flex items-center justify-center py-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadMore}
+                      disabled={isLoadingMore}
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Loading...
+                        </>
+                      ) : (
+                        'Load More'
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Loading More Indicator */}
+                {isLoadingMore && (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 )}
               </div>

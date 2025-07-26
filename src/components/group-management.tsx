@@ -233,7 +233,6 @@ export function GroupManagement({ isOpen, onClose, mode, existingGroup }: GroupM
       initialSelected={selectedEmployees}
       title="Select Team Members"
       description="Choose team members to add to your group"
-      maxSelection={50}
     />
   )
 
