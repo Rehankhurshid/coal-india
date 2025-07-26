@@ -22,6 +22,11 @@ import {
   List,
 } from "lucide-react";
 
+interface FilterOption {
+  value: string;
+  count: number;
+}
+
 interface FiltersSidebarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -38,10 +43,10 @@ interface FiltersSidebarProps {
   onClearFilters: () => void;
   totalEmployees: number;
   filteredEmployees: number;
-  departments: string[];
-  grades: string[];
-  categories: string[];
-  bloodGroups: string[];
+  departments: FilterOption[];
+  grades: FilterOption[];
+  categories: FilterOption[];
+  bloodGroups: FilterOption[];
 }
 
 export function FiltersSidebar(props: FiltersSidebarProps) {
@@ -74,8 +79,8 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
           <SelectContent>
             <SelectItem value="all">All Departments</SelectItem>
             {props.departments.map((dept) => (
-              <SelectItem key={dept} value={dept}>
-                {dept}
+              <SelectItem key={dept.value} value={dept.value}>
+                {dept.value} ({dept.count})
               </SelectItem>
             ))}
           </SelectContent>
@@ -95,8 +100,8 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
           <SelectContent>
             <SelectItem value="all">All Grades</SelectItem>
             {props.grades.map((grade) => (
-              <SelectItem key={grade} value={grade}>
-                {grade}
+              <SelectItem key={grade.value} value={grade.value}>
+                {grade.value} ({grade.count})
               </SelectItem>
             ))}
           </SelectContent>
@@ -116,8 +121,8 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
             {props.categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
+              <SelectItem key={category.value} value={category.value}>
+                {category.value} ({category.count})
               </SelectItem>
             ))}
           </SelectContent>
@@ -155,8 +160,8 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               {props.bloodGroups.map((bloodGroup) => (
-                <SelectItem key={bloodGroup} value={bloodGroup}>
-                  {bloodGroup}
+                <SelectItem key={bloodGroup.value} value={bloodGroup.value}>
+                  {bloodGroup.value} ({bloodGroup.count})
                 </SelectItem>
               ))}
             </SelectContent>

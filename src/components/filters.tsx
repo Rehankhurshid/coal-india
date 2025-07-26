@@ -14,6 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, X } from "lucide-react";
 
+interface FilterOption {
+  value: string;
+  count: number;
+}
+
 interface FiltersProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -30,10 +35,10 @@ interface FiltersProps {
   onClearFilters: () => void;
   totalEmployees: number;
   filteredEmployees: number;
-  departments: string[];
-  grades: string[];
-  categories: string[];
-  bloodGroups: string[];
+  departments: FilterOption[];
+  grades: FilterOption[];
+  categories: FilterOption[];
+  bloodGroups: FilterOption[];
 }
 
 export function Filters({
@@ -88,8 +93,8 @@ export function Filters({
           <SelectContent>
             <SelectItem value="all">All Departments</SelectItem>
             {departments.map((dept) => (
-              <SelectItem key={dept} value={dept}>
-                {dept}
+              <SelectItem key={dept.value} value={dept.value}>
+                {dept.value} ({dept.count})
               </SelectItem>
             ))}
           </SelectContent>
@@ -106,8 +111,8 @@ export function Filters({
           <SelectContent>
             <SelectItem value="all">All Grades</SelectItem>
             {grades.map((grade) => (
-              <SelectItem key={grade} value={grade}>
-                {grade}
+              <SelectItem key={grade.value} value={grade.value}>
+                {grade.value} ({grade.count})
               </SelectItem>
             ))}
           </SelectContent>
@@ -124,8 +129,8 @@ export function Filters({
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
             {categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
+              <SelectItem key={category.value} value={category.value}>
+                {category.value} ({category.count})
               </SelectItem>
             ))}
           </SelectContent>
@@ -157,8 +162,8 @@ export function Filters({
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               {bloodGroups.map((bloodGroup) => (
-                <SelectItem key={bloodGroup} value={bloodGroup}>
-                  {bloodGroup}
+                <SelectItem key={bloodGroup.value} value={bloodGroup.value}>
+                  {bloodGroup.value} ({bloodGroup.count})
                 </SelectItem>
               ))}
             </SelectContent>

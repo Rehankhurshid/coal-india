@@ -195,47 +195,124 @@ export default function Home() {
     setSelectedBloodGroup("all");
   }, []);
 
-  // Filter options state
-  const [departments, setDepartments] = React.useState<string[]>([]);
-  const [grades, setGrades] = React.useState<string[]>([]);
-  const [categories, setCategories] = React.useState<string[]>([]);
-  const [bloodGroups, setBloodGroups] = React.useState<string[]>([]);
+  // Filter options state with counts
+  const [departments, setDepartments] = React.useState<{value: string, count: number}[]>([]);
+  const [grades, setGrades] = React.useState<{value: string, count: number}[]>([]);
+  const [categories, setCategories] = React.useState<{value: string, count: number}[]>([]);
+  const [bloodGroups, setBloodGroups] = React.useState<{value: string, count: number}[]>([]);
 
-  // Fetch filter options from database
-  const fetchFilterOptions = React.useCallback(async () => {
+  // Fetch filter options from database with dynamic counts
+  const fetchFilterOptions = React.useCallback(async (currentFilters?: {
+    searchQuery?: string;
+    selectedDept?: string;
+    selectedGrade?: string;
+    selectedCategory?: string;
+    selectedGender?: string;
+    selectedBloodGroup?: string;
+  }) => {
     try {
-      console.log('Fetching filter options...');
+      console.log('Fetching filter options with counts...');
       
-      const [deptResult, gradeResult, categoryResult, bloodGroupResult] = await Promise.all([
-        supabase.from('employees').select('dept').not('dept', 'is', null),
-        supabase.from('employees').select('grade').not('grade', 'is', null),
-        supabase.from('employees').select('category').not('category', 'is', null),
-        supabase.from('employees').select('blood_group').not('blood_group', 'is', null),
+      // Use current filters if not provided
+      const filters = currentFilters || {
+        searchQuery,
+        selectedDept,
+        selectedGrade,
+        selectedCategory,
+        selectedGender,
+        selectedBloodGroup
+      };
+
+      // Fetch counts for each filter option based on current selection
+      const fetchFilterCounts = async (filterType: string, excludeFilter?: string) => {
+        let query = supabase
+          .from('employees')
+          .select(filterType, { count: 'exact' })
+          .not(filterType, 'is', null);
+
+        // Apply all filters except the one we're counting
+        if (filters.searchQuery && filters.searchQuery.trim()) {
+          const searchTerm = filters.searchQuery.trim();
+          query = query.or(`name.ilike.%${searchTerm}%,emp_code.ilike.%${searchTerm}%,designation.ilike.%${searchTerm}%,dept.ilike.%${searchTerm}%`);
+        }
+
+        if (excludeFilter !== 'dept' && filters.selectedDept && filters.selectedDept !== 'all') {
+          query = query.eq('dept', filters.selectedDept);
+        }
+
+        if (excludeFilter !== 'grade' && filters.selectedGrade && filters.selectedGrade !== 'all') {
+          query = query.eq('grade', filters.selectedGrade);
+        }
+
+        if (excludeFilter !== 'category' && filters.selectedCategory && filters.selectedCategory !== 'all') {
+          query = query.eq('category', filters.selectedCategory);
+        }
+
+        if (excludeFilter !== 'gender' && filters.selectedGender && filters.selectedGender !== 'all') {
+          query = query.eq('gender', filters.selectedGender);
+        }
+
+        if (excludeFilter !== 'blood_group' && filters.selectedBloodGroup && filters.selectedBloodGroup !== 'all') {
+          query = query.eq('blood_group', filters.selectedBloodGroup);
+        }
+
+        const { data } = await query;
+        
+        // Count occurrences
+        const counts = new Map<string, number>();
+        data?.forEach(item => {
+          const value = (item as any)[filterType];
+          if (value) {
+            counts.set(value, (counts.get(value) || 0) + 1);
+          }
+        });
+
+        return Array.from(counts.entries())
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => a.value.localeCompare(b.value));
+      };
+
+      const [deptCounts, gradeCounts, categoryCounts, bloodGroupCounts] = await Promise.all([
+        fetchFilterCounts('dept', 'dept'),
+        fetchFilterCounts('grade', 'grade'),
+        fetchFilterCounts('category', 'category'),
+        fetchFilterCounts('blood_group', 'blood_group'),
       ]);
 
-      if (deptResult.data) {
-        setDepartments([...new Set(deptResult.data.map(item => item.dept))].sort());
-      }
-      if (gradeResult.data) {
-        setGrades([...new Set(gradeResult.data.map(item => item.grade))].sort());
-      }
-      if (categoryResult.data) {
-        setCategories([...new Set(categoryResult.data.map(item => item.category))].sort());
-      }
-      if (bloodGroupResult.data) {
-        setBloodGroups([...new Set(bloodGroupResult.data.map(item => item.blood_group))].sort());
-      }
+      setDepartments(deptCounts);
+      setGrades(gradeCounts);
+      setCategories(categoryCounts);
+      setBloodGroups(bloodGroupCounts);
       
-      console.log('Filter options loaded');
+      console.log('Filter options with counts loaded', {
+        departments: deptCounts.length,
+        grades: gradeCounts.length,
+        categories: categoryCounts.length,
+        bloodGroups: bloodGroupCounts.length
+      });
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
-  }, []);
+  }, [searchQuery, selectedDept, selectedGrade, selectedCategory, selectedGender, selectedBloodGroup]);
 
   // Initialize filter options
   React.useEffect(() => {
     fetchFilterOptions();
   }, [fetchFilterOptions]);
+
+  // Update filter counts when any filter changes
+  React.useEffect(() => {
+    const currentFilters = {
+      searchQuery,
+      selectedDept,
+      selectedGrade,
+      selectedCategory,
+      selectedGender,
+      selectedBloodGroup
+    };
+    
+    fetchFilterOptions(currentFilters);
+  }, [searchQuery, selectedDept, selectedGrade, selectedCategory, selectedGender, selectedBloodGroup, fetchFilterOptions]);
 
   return (
     <ProtectedRoute>
