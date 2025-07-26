@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,12 +21,28 @@ import {
   Star,
   CheckCircle2,
   Circle,
+  Loader2,
 } from "lucide-react"
 import { UserPresenceIndicator } from "./user-presence-indicator"
 import { useUserPresence } from "../hooks/use-user-presence"
 import { MobileMemberSelector } from "./mobile-member-selector"
 import { useIsMobile } from "../hooks/use-mobile"
-import { Employee } from "@/types/messaging"
+import { supabase, Employee as SupabaseEmployee } from "@/lib/supabase"
+
+// Map Supabase Employee to our internal Employee type
+interface Employee {
+  id: string
+  name: string
+  initials: string
+  employeeId: string
+  designation: string
+  department: string
+  location: string
+  grade: string
+  category: string
+  gender: string
+  isStarred?: boolean
+}
 
 interface EnhancedMemberSelectorProps {
   isOpen: boolean
@@ -38,107 +54,30 @@ interface EnhancedMemberSelectorProps {
   maxSelection?: number
 }
 
-const mockEmployees: Employee[] = [
-  {
-    id: "1",
-    name: "A CHINNA GANGAIYA",
-    initials: "AC",
-    employeeId: "21497979",
-    designation: "EP FITTER",
-    department: "EXCAVATION",
-    location: "Gevra Area",
-    grade: "E1",
-    category: "Technical",
-    gender: "Male",
-    isStarred: true,
-  },
-  {
-    id: "2",
-    name: "A K YADAV",
-    initials: "AK",
-    employeeId: "21468962",
-    designation: "EP FITTER",
-    department: "EXCAVATION",
-    location: "Gevra Area",
-    grade: "E1",
-    category: "Technical",
-    gender: "Male",
-  },
-  {
-    id: "3",
-    name: "A P PANDEY",
-    initials: "AP",
-    employeeId: "22605844",
-    designation: "EP FITTER",
-    department: "ELECT. & MECH",
-    location: "Gevra Area",
-    grade: "E2",
-    category: "Technical",
-    gender: "Male",
-    isStarred: true,
-  },
-  {
-    id: "4",
-    name: "A S Ramseshaya",
-    initials: "AS",
-    employeeId: "90082355",
-    designation: "General Manager",
-    department: "SAFETY & CONSV.",
-    location: "Gevra Area",
-    grade: "E8",
-    category: "Management",
-    gender: "Male",
-  },
-  {
-    id: "5",
-    name: "A.Chandra Shekhar",
-    initials: "AS",
-    employeeId: "90263971",
-    designation: "Manager",
-    department: "EXCAVATION",
-    location: "Gevra Area",
-    grade: "E7",
-    category: "Management",
-    gender: "Male",
-  },
-  {
-    id: "6",
-    name: "B KUMAR SINGH",
-    initials: "BK",
-    employeeId: "21497980",
-    designation: "TECHNICIAN",
-    department: "ELECT. & MECH",
-    location: "Gevra Area",
-    grade: "E3",
-    category: "Technical",
-    gender: "Male",
-  },
-  {
-    id: "7",
-    name: "C PRIYA SHARMA",
-    initials: "CP",
-    employeeId: "21497981",
-    designation: "HR EXECUTIVE",
-    department: "HUMAN RESOURCES",
-    location: "Gevra Area",
-    grade: "E4",
-    category: "Administrative",
-    gender: "Female",
-    isStarred: true,
-  },
-  {
-    id: "8",
-    name: "D RAJESH KUMAR",
-    initials: "DR",
-    employeeId: "21497982",
-    designation: "SAFETY OFFICER",
-    department: "SAFETY & CONSV.",
-    location: "Gevra Area",
-    grade: "E5",
-    category: "Safety",
-    gender: "Male",
-  },
-]
+// Transform Supabase employee to our format
+const transformEmployee = (emp: SupabaseEmployee): Employee => {
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
+  return {
+    id: emp.id.toString(),
+    name: emp.name || '',
+    initials: getInitials(emp.name || ''),
+    employeeId: emp.emp_code || '',
+    designation: emp.designation || '',
+    department: emp.dept || '',
+    location: emp.area_name || '',
+    grade: emp.grade || '',
+    category: emp.category || '',
+    gender: emp.gender || '',
+  }
+}
 
 export function EnhancedMemberSelector({
   isOpen,
@@ -151,6 +90,7 @@ export function EnhancedMemberSelector({
 }: EnhancedMemberSelectorProps) {
   const [selectedEmployees, setSelectedEmployees] = useState<Employee[]>(initialSelected)
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [showFilters, setShowFilters] = useState(false)
   const [viewMode, setViewMode] = useState<"all" | "starred" | "recent">("all")
   const [sortBy, setSortBy] = useState<"name" | "department" | "grade">("name")
@@ -163,35 +103,170 @@ export function EnhancedMemberSelector({
     status: "all",
   })
 
+  // Supabase data
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [departments, setDepartments] = useState<{value: string, count: number}[]>([])
+  const [locations, setLocations] = useState<{value: string, count: number}[]>([])
+  const [grades, setGrades] = useState<{value: string, count: number}[]>([])
+  const [categories, setCategories] = useState<{value: string, count: number}[]>([])
+
   const { getUserStatus } = useUserPresence()
   const isMobile = useIsMobile()
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Fetch employees from Supabase
+  const fetchEmployees = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      
+      let query = supabase
+        .from("employees")
+        .select("*")
+        .order("name", { ascending: true })
+        .limit(500) // Limit for member selection
+
+      // Apply search filter
+      if (debouncedSearchQuery && debouncedSearchQuery.trim()) {
+        const searchTerm = debouncedSearchQuery.trim()
+        query = query.or(`name.ilike.%${searchTerm}%,emp_code.ilike.%${searchTerm}%,designation.ilike.%${searchTerm}%,dept.ilike.%${searchTerm}%`)
+      }
+
+      // Apply filters
+      if (filters.department !== 'all') {
+        query = query.eq('dept', filters.department)
+      }
+      if (filters.location !== 'all') {
+        query = query.eq('area_name', filters.location)
+      }
+      if (filters.grade !== 'all') {
+        query = query.eq('grade', filters.grade)
+      }
+      if (filters.category !== 'all') {
+        query = query.eq('category', filters.category)
+      }
+      if (filters.gender !== 'all') {
+        query = query.eq('gender', filters.gender)
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        console.error("Error fetching employees:", error)
+        return
+      }
+
+      const transformedEmployees = (data || []).map(transformEmployee)
+      setEmployees(transformedEmployees)
+      
+    } catch (error) {
+      console.error("Error fetching employees:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [debouncedSearchQuery, filters])
+
+  // Fetch filter options
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      // Fetch unique values for each filter
+      const [deptResult, locationResult, gradeResult, categoryResult] = await Promise.all([
+        supabase.from('employees').select('dept').not('dept', 'is', null),
+        supabase.from('employees').select('area_name').not('area_name', 'is', null),
+        supabase.from('employees').select('grade').not('grade', 'is', null),
+        supabase.from('employees').select('category').not('category', 'is', null),
+      ])
+
+      // Process departments
+      const deptCounts = new Map<string, number>()
+      deptResult.data?.forEach(item => {
+        if (item.dept) {
+          deptCounts.set(item.dept, (deptCounts.get(item.dept) || 0) + 1)
+        }
+      })
+      setDepartments(
+        Array.from(deptCounts.entries())
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => a.value.localeCompare(b.value))
+      )
+
+      // Process locations
+      const locationCounts = new Map<string, number>()
+      locationResult.data?.forEach(item => {
+        if (item.area_name) {
+          locationCounts.set(item.area_name, (locationCounts.get(item.area_name) || 0) + 1)
+        }
+      })
+      setLocations(
+        Array.from(locationCounts.entries())
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => a.value.localeCompare(b.value))
+      )
+
+      // Process grades
+      const gradeCounts = new Map<string, number>()
+      gradeResult.data?.forEach(item => {
+        if (item.grade) {
+          gradeCounts.set(item.grade, (gradeCounts.get(item.grade) || 0) + 1)
+        }
+      })
+      setGrades(
+        Array.from(gradeCounts.entries())
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => a.value.localeCompare(b.value))
+      )
+
+      // Process categories
+      const categoryCounts = new Map<string, number>()
+      categoryResult.data?.forEach(item => {
+        if (item.category) {
+          categoryCounts.set(item.category, (categoryCounts.get(item.category) || 0) + 1)
+        }
+      })
+      setCategories(
+        Array.from(categoryCounts.entries())
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => a.value.localeCompare(b.value))
+      )
+    } catch (error) {
+      console.error('Error fetching filter options:', error)
+    }
+  }, [])
+
+  // Initial data fetch
+  useEffect(() => {
+    if (isOpen) {
+      fetchEmployees()
+      fetchFilterOptions()
+    }
+  }, [isOpen, fetchEmployees, fetchFilterOptions])
+
+  // Refetch when filters change
+  useEffect(() => {
+    if (isOpen) {
+      fetchEmployees()
+    }
+  }, [debouncedSearchQuery, filters, fetchEmployees])
+
   // Enhanced filtering and sorting logic
   const filteredAndSortedEmployees = useMemo(() => {
-    const filtered = mockEmployees.filter((employee) => {
-      const matchesSearch =
-        employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.employeeId.includes(searchQuery) ||
-        employee.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.department.toLowerCase().includes(searchQuery.toLowerCase())
+    let filtered = [...employees]
 
-      const matchesFilters =
-        (filters.department === "all" || employee.department === filters.department) &&
-        (filters.location === "all" || employee.location === filters.location) &&
-        (filters.grade === "all" || employee.grade === filters.grade) &&
-        (filters.category === "all" || employee.category === filters.category) &&
-        (filters.gender === "all" || employee.gender === filters.gender)
-
-      const userStatus = getUserStatus(employee.id)
-      const matchesStatus = filters.status === "all" || userStatus === filters.status
-
-      const matchesView =
-        viewMode === "all" ||
-        (viewMode === "starred" && employee.isStarred) ||
-        (viewMode === "recent" && Math.random() > 0.5) // Mock recent logic
-
-      return matchesSearch && matchesFilters && matchesStatus && matchesView
-    })
+    // Apply view mode filter
+    if (viewMode === "starred") {
+      filtered = filtered.filter(emp => emp.isStarred)
+    } else if (viewMode === "recent") {
+      // For now, just show the first 20 as "recent"
+      filtered = filtered.slice(0, 20)
+    }
 
     // Sort the filtered results
     filtered.sort((a, b) => {
@@ -220,7 +295,7 @@ export function EnhancedMemberSelector({
     })
 
     return filtered
-  }, [searchQuery, filters, viewMode, sortBy, selectedEmployees, getUserStatus])
+  }, [employees, viewMode, sortBy, selectedEmployees])
 
   const handleEmployeeToggle = (employee: Employee) => {
     setSelectedEmployees((prev) => {
@@ -276,11 +351,6 @@ export function EnhancedMemberSelector({
   const getFilterCount = () => {
     return Object.values(filters).filter((value) => value !== "all").length + (searchQuery ? 1 : 0)
   }
-
-  const departments = [...new Set(mockEmployees.map((emp) => emp.department))]
-  const locations = [...new Set(mockEmployees.map((emp) => emp.location))]
-  const grades = [...new Set(mockEmployees.map((emp) => emp.grade))]
-  const categories = [...new Set(mockEmployees.map((emp) => emp.category))]
 
   // Use mobile component on mobile devices
   if (isMobile) {
@@ -360,8 +430,28 @@ export function EnhancedMemberSelector({
                         <SelectContent>
                           <SelectItem value="all">All Departments</SelectItem>
                           {departments.map((dept) => (
-                            <SelectItem key={dept} value={dept}>
-                              {dept}
+                            <SelectItem key={dept.value} value={dept.value}>
+                              {dept.value} ({dept.count})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Location</label>
+                      <Select
+                        value={filters.location}
+                        onValueChange={(value) => setFilters((prev) => ({ ...prev, location: value }))}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Locations</SelectItem>
+                          {locations.map((loc) => (
+                            <SelectItem key={loc.value} value={loc.value}>
+                              {loc.value} ({loc.count})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -380,8 +470,8 @@ export function EnhancedMemberSelector({
                         <SelectContent>
                           <SelectItem value="all">All Grades</SelectItem>
                           {grades.map((grade) => (
-                            <SelectItem key={grade} value={grade}>
-                              {grade}
+                            <SelectItem key={grade.value} value={grade.value}>
+                              {grade.value} ({grade.count})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -389,20 +479,38 @@ export function EnhancedMemberSelector({
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium mb-1 block">Status</label>
+                      <label className="text-sm font-medium mb-1 block">Category</label>
                       <Select
-                        value={filters.status}
-                        onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}
+                        value={filters.category}
+                        onValueChange={(value) => setFilters((prev) => ({ ...prev, category: value }))}
                       >
                         <SelectTrigger className="h-8">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="online">Online</SelectItem>
-                          <SelectItem value="away">Away</SelectItem>
-                          <SelectItem value="busy">Busy</SelectItem>
-                          <SelectItem value="offline">Offline</SelectItem>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.value} value={cat.value}>
+                              {cat.value} ({cat.count})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Gender</label>
+                      <Select
+                        value={filters.gender}
+                        onValueChange={(value) => setFilters((prev) => ({ ...prev, gender: value }))}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Genders</SelectItem>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Female">Female</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -410,27 +518,6 @@ export function EnhancedMemberSelector({
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <label className="text-sm font-medium">View:</label>
-                        <div className="flex items-center space-x-1">
-                          <Button
-                            variant={viewMode === "all" ? "default" : "ghost"}
-                            size="sm"
-                            onClick={() => setViewMode("all")}
-                          >
-                            All
-                          </Button>
-                          <Button
-                            variant={viewMode === "starred" ? "default" : "ghost"}
-                            size="sm"
-                            onClick={() => setViewMode("starred")}
-                          >
-                            <Star className="w-3 h-3 mr-1" />
-                            Starred
-                          </Button>
-                        </div>
-                      </div>
-
                       <div className="flex items-center space-x-2">
                         <label className="text-sm font-medium">Sort by:</label>
                         <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
@@ -477,7 +564,11 @@ export function EnhancedMemberSelector({
             {/* Employee List */}
             <ScrollArea className="flex-1 overflow-auto min-h-0">
               <div className="px-6 py-4 space-y-2">
-                {filteredAndSortedEmployees.map((employee) => {
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : filteredAndSortedEmployees.map((employee) => {
                   const isSelected = selectedEmployees.some((emp) => emp.id === employee.id)
                   const userStatus = getUserStatus(employee.id)
 
@@ -540,7 +631,7 @@ export function EnhancedMemberSelector({
                   )
                 })}
 
-                {filteredAndSortedEmployees.length === 0 && (
+                {!isLoading && filteredAndSortedEmployees.length === 0 && (
                   <div className="text-center py-12">
                     <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                     <p className="text-muted-foreground">No employees found</p>

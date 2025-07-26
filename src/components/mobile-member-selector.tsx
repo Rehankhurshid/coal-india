@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,10 +22,12 @@ import {
   History,
   Clock,
   UserCheck,
+  Loader2,
 } from "lucide-react"
 import { UserPresenceIndicator } from "./user-presence-indicator"
 import { useUserPresence } from "../hooks/use-user-presence"
 import { useHaptic } from "../hooks/use-haptic"
+import { supabase, Employee as SupabaseEmployee } from "@/lib/supabase"
 
 interface Employee {
   id: string
@@ -58,139 +60,30 @@ interface MobileMemberSelectorProps {
   maxSelection?: number
 }
 
-const mockEmployees: Employee[] = [
-  {
-    id: "1",
-    name: "A CHINNA GANGAIYA",
-    initials: "AC",
-    employeeId: "21497979",
-    designation: "EP FITTER",
-    department: "EXCAVATION",
-    location: "Gevra Area",
-    grade: "E1",
-    category: "Technical",
-    gender: "Male",
-    isStarred: true,
-  },
-  {
-    id: "2",
-    name: "A K YADAV",
-    initials: "AK",
-    employeeId: "21468962",
-    designation: "EP FITTER",
-    department: "EXCAVATION",
-    location: "Gevra Area",
-    grade: "E1",
-    category: "Technical",
-    gender: "Male",
-  },
-  {
-    id: "3",
-    name: "A P PANDEY",
-    initials: "AP",
-    employeeId: "22605844",
-    designation: "EP FITTER",
-    department: "ELECT. & MECH",
-    location: "Gevra Area",
-    grade: "E2",
-    category: "Technical",
-    gender: "Male",
-    isStarred: true,
-  },
-  {
-    id: "4",
-    name: "A S Ramseshaya",
-    initials: "AS",
-    employeeId: "90082355",
-    designation: "General Manager",
-    department: "SAFETY & CONSV.",
-    location: "Gevra Area",
-    grade: "E8",
-    category: "Management",
-    gender: "Male",
-  },
-  {
-    id: "5",
-    name: "A.Chandra Shekhar",
-    initials: "AS",
-    employeeId: "90263971",
-    designation: "Manager",
-    department: "EXCAVATION",
-    location: "Gevra Area",
-    grade: "E7",
-    category: "Management",
-    gender: "Male",
-  },
-  {
-    id: "6",
-    name: "B KUMAR SINGH",
-    initials: "BK",
-    employeeId: "21497980",
-    designation: "TECHNICIAN",
-    department: "ELECT. & MECH",
-    location: "Gevra Area",
-    grade: "E3",
-    category: "Technical",
-    gender: "Male",
-  },
-  {
-    id: "7",
-    name: "C PRIYA SHARMA",
-    initials: "CP",
-    employeeId: "21497981",
-    designation: "HR EXECUTIVE",
-    department: "HUMAN RESOURCES",
-    location: "Gevra Area",
-    grade: "E4",
-    category: "Administrative",
-    gender: "Female",
-    isStarred: true,
-  },
-  {
-    id: "8",
-    name: "D RAJESH KUMAR",
-    initials: "DR",
-    employeeId: "21497982",
-    designation: "SAFETY OFFICER",
-    department: "SAFETY & CONSV.",
-    location: "Gevra Area",
-    grade: "E5",
-    category: "Safety",
-    gender: "Male",
-  },
-]
-
-// Generate more mock employees to simulate 2800+ employees
-const generateMockEmployees = (): Employee[] => {
-  const baseEmployees = [...mockEmployees]
-  const departments = ["EXCAVATION", "ELECT. & MECH", "SAFETY & CONSV.", "HUMAN RESOURCES", "FINANCE", "OPERATIONS"]
-  const designations = ["FITTER", "TECHNICIAN", "ENGINEER", "MANAGER", "EXECUTIVE", "OFFICER", "SUPERVISOR"]
-  const grades = ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8"]
-  const categories = ["Technical", "Management", "Administrative", "Safety"]
-
-  for (let i = 9; i <= 100; i++) {
-    // Generate 100 employees for demo
-    const firstName = String.fromCharCode(65 + (i % 26))
-    const lastName = `Employee ${i}`
-    baseEmployees.push({
-      id: i.toString(),
-      name: `${firstName} ${lastName}`,
-      initials: `${firstName}${lastName.charAt(0)}`,
-      employeeId: `2149${7980 + i}`,
-      designation: designations[i % designations.length],
-      department: departments[i % departments.length],
-      location: "Gevra Area",
-      grade: grades[i % grades.length],
-      category: categories[i % categories.length],
-      gender: i % 3 === 0 ? "Female" : "Male",
-      isStarred: i % 10 === 0,
-    })
+// Transform Supabase employee to our format
+const transformEmployee = (emp: SupabaseEmployee): Employee => {
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
 
-  return baseEmployees
+  return {
+    id: emp.id.toString(),
+    name: emp.name || '',
+    initials: getInitials(emp.name || ''),
+    employeeId: emp.emp_code || '',
+    designation: emp.designation || '',
+    department: emp.dept || '',
+    location: emp.area_name || '',
+    grade: emp.grade || '',
+    category: emp.category || '',
+    gender: emp.gender || '',
+  }
 }
-
-const allEmployees = generateMockEmployees()
 
 export function MobileMemberSelector({
   isOpen,
@@ -203,6 +96,7 @@ export function MobileMemberSelector({
 }: MobileMemberSelectorProps) {
   const [selectedEmployees, setSelectedEmployees] = useState<Employee[]>(initialSelected)
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [showFilters, setShowFilters] = useState(false)
   const [activeTab, setActiveTab] = useState<"all" | "selected" | "history">("all")
   const [viewMode, setViewMode] = useState<"all" | "starred" | "recent">("all")
@@ -218,66 +112,153 @@ export function MobileMemberSelector({
     status: "all",
   })
 
+  // Supabase data
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [departments, setDepartments] = useState<string[]>([])
+  const [grades, setGrades] = useState<string[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+
   const { getUserStatus } = useUserPresence()
   const { triggerHaptic } = useHaptic()
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Fetch employees from Supabase
+  const fetchEmployees = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      
+      let query = supabase
+        .from("employees")
+        .select("*")
+        .order("name", { ascending: true })
+        .limit(200) // Smaller limit for mobile
+
+      // Apply search filter
+      if (debouncedSearchQuery && debouncedSearchQuery.trim()) {
+        const searchTerm = debouncedSearchQuery.trim()
+        query = query.or(`name.ilike.%${searchTerm}%,emp_code.ilike.%${searchTerm}%,designation.ilike.%${searchTerm}%,dept.ilike.%${searchTerm}%`)
+      }
+
+      // Apply filters
+      if (filters.department !== 'all') {
+        query = query.eq('dept', filters.department)
+      }
+      if (filters.location !== 'all') {
+        query = query.eq('area_name', filters.location)
+      }
+      if (filters.grade !== 'all') {
+        query = query.eq('grade', filters.grade)
+      }
+      if (filters.category !== 'all') {
+        query = query.eq('category', filters.category)
+      }
+      if (filters.gender !== 'all') {
+        query = query.eq('gender', filters.gender)
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        console.error("Error fetching employees:", error)
+        return
+      }
+
+      const transformedEmployees = (data || []).map(transformEmployee)
+      setEmployees(transformedEmployees)
+      
+    } catch (error) {
+      console.error("Error fetching employees:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [debouncedSearchQuery, filters])
+
+  // Fetch filter options
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      // Get unique departments, grades, and categories
+      const { data } = await supabase
+        .from('employees')
+        .select('dept, grade, category')
+        .not('dept', 'is', null)
+        .not('grade', 'is', null)
+        .not('category', 'is', null)
+
+      if (data) {
+        const uniqueDepts = [...new Set(data.map(item => item.dept).filter(Boolean))]
+        const uniqueGrades = [...new Set(data.map(item => item.grade).filter(Boolean))]
+        const uniqueCategories = [...new Set(data.map(item => item.category).filter(Boolean))]
+
+        setDepartments(uniqueDepts.sort())
+        setGrades(uniqueGrades.sort())
+        setCategories(uniqueCategories.sort())
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error)
+    }
+  }, [])
+
+  // Initial data fetch
+  useEffect(() => {
+    if (isOpen) {
+      fetchEmployees()
+      fetchFilterOptions()
+    }
+  }, [isOpen, fetchEmployees, fetchFilterOptions])
+
+  // Refetch when filters change
+  useEffect(() => {
+    if (isOpen) {
+      fetchEmployees()
+    }
+  }, [debouncedSearchQuery, filters, fetchEmployees])
+
   // Quick filter options
   const quickFilters = [
-    { id: "online", label: "Online Only", icon: UserCheck, count: 45 },
-    { id: "starred", label: "Starred", icon: Star, count: 12 },
-    { id: "my-dept", label: "My Department", icon: Building2, count: 23 },
-    { id: "recent", label: "Recently Added", icon: Clock, count: 8 },
-    { id: "management", label: "Management", icon: Users, count: 15 },
+    { id: "online", label: "Online Only", icon: UserCheck, count: employees.filter(e => getUserStatus(e.id) === 'online').length },
+    { id: "starred", label: "Starred", icon: Star, count: employees.filter(e => e.isStarred).length },
+    { id: "recent", label: "Recently Added", icon: Clock, count: Math.min(8, employees.length) },
+    { id: "management", label: "Management", icon: Users, count: employees.filter(e => e.category === 'Management').length },
   ]
 
   // Enhanced filtering and sorting logic
   const filteredAndSortedEmployees = useMemo(() => {
-    const filtered = allEmployees.filter((employee) => {
-      const matchesSearch =
-        employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.employeeId.includes(searchQuery) ||
-        employee.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.department.toLowerCase().includes(searchQuery.toLowerCase())
+    let filtered = [...employees]
 
-      const matchesFilters =
-        (filters.department === "all" || employee.department === filters.department) &&
-        (filters.location === "all" || employee.location === filters.location) &&
-        (filters.grade === "all" || employee.grade === filters.grade) &&
-        (filters.category === "all" || employee.category === filters.category) &&
-        (filters.gender === "all" || employee.gender === filters.gender)
+    // Apply view mode filter
+    if (viewMode === "starred") {
+      filtered = filtered.filter(emp => emp.isStarred)
+    } else if (viewMode === "recent") {
+      // Show first 20 as "recent"
+      filtered = filtered.slice(0, 20)
+    }
 
-      const userStatus = getUserStatus(employee.id)
-      const matchesStatus = filters.status === "all" || userStatus === filters.status
-
-      const matchesView =
-        viewMode === "all" ||
-        (viewMode === "starred" && employee.isStarred) ||
-        (viewMode === "recent" && Math.random() > 0.7) // Mock recent logic
-
-      // Quick filter logic
-      let matchesQuickFilter = true
-      if (quickFilter) {
-        switch (quickFilter) {
-          case "online":
-            matchesQuickFilter = getUserStatus(employee.id) === "online"
-            break
-          case "starred":
-            matchesQuickFilter = employee.isStarred === true
-            break
-          case "my-dept":
-            matchesQuickFilter = employee.department === "EXCAVATION" // Mock user's department
-            break
-          case "recent":
-            matchesQuickFilter = Math.random() > 0.8
-            break
-          case "management":
-            matchesQuickFilter = employee.category === "Management"
-            break
-        }
+    // Quick filter logic
+    if (quickFilter) {
+      switch (quickFilter) {
+        case "online":
+          filtered = filtered.filter(emp => getUserStatus(emp.id) === "online")
+          break
+        case "starred":
+          filtered = filtered.filter(emp => emp.isStarred === true)
+          break
+        case "recent":
+          filtered = filtered.slice(0, 8)
+          break
+        case "management":
+          filtered = filtered.filter(emp => emp.category === "Management")
+          break
       }
-
-      return matchesSearch && matchesFilters && matchesStatus && matchesView && matchesQuickFilter
-    })
+    }
 
     // Sort the filtered results
     filtered.sort((a, b) => {
@@ -306,7 +287,7 @@ export function MobileMemberSelector({
     })
 
     return filtered
-  }, [searchQuery, filters, viewMode, sortBy, selectedEmployees, getUserStatus, quickFilter])
+  }, [employees, viewMode, sortBy, selectedEmployees, getUserStatus, quickFilter])
 
   const handleEmployeeToggle = (employee: Employee) => {
     triggerHaptic("selection")
@@ -427,9 +408,6 @@ export function MobileMemberSelector({
     )
   }
 
-  const departments = [...new Set(allEmployees.map((emp) => emp.department))]
-  const grades = [...new Set(allEmployees.map((emp) => emp.grade))]
-
   // Mobile Filter Sheet Component
   const MobileFilterSheet = () => (
     <Sheet open={showFilters} onOpenChange={setShowFilters}>
@@ -468,47 +446,6 @@ export function MobileMemberSelector({
                       </Badge>
                     </Button>
                   ))}
-                </div>
-              </div>
-
-              {/* View Mode */}
-              <div>
-                <h3 className="font-medium mb-3">View</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    variant={viewMode === "all" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      triggerHaptic("light")
-                      setViewMode("all")
-                    }}
-                    className="h-12"
-                  >
-                    All
-                  </Button>
-                  <Button
-                    variant={viewMode === "starred" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      triggerHaptic("light")
-                      setViewMode("starred")
-                    }}
-                    className="h-12"
-                  >
-                    <Star className="w-4 h-4 mr-1" />
-                    Starred
-                  </Button>
-                  <Button
-                    variant={viewMode === "recent" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      triggerHaptic("light")
-                      setViewMode("recent")
-                    }}
-                    className="h-12"
-                  >
-                    Recent
-                  </Button>
                 </div>
               </div>
 
@@ -567,7 +504,7 @@ export function MobileMemberSelector({
                   >
                     All Departments
                   </Button>
-                  {departments.map((dept) => (
+                  {departments.slice(0, 10).map((dept) => (
                     <Button
                       key={dept}
                       variant={filters.department === dept ? "default" : "outline"}
@@ -584,82 +521,74 @@ export function MobileMemberSelector({
                 </div>
               </div>
 
-              {/* Grade Filter */}
-              {/* <div>
-              <h3 className="font-medium mb-3">Grade</h3>
-              <div className="grid grid-cols-4 gap-2">
-                <Button
-                  variant={filters.grade === "all" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilters((prev) => ({ ...prev, grade: "all" }))}
-                  className="h-12"
-                >
-                  All
-                </Button>
-                {grades.map((grade) => (
-                  <Button
-                    key={grade}
-                    variant={filters.grade === grade ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilters((prev) => ({ ...prev, grade: grade }))}
-                    className="h-12"
-                  >
-                    {grade}
-                  </Button>
-                ))}
-              </div>
-            </div> */}
-
-              {/* Status Filter */}
+              {/* Category Filter */}
               <div>
-                <h3 className="font-medium mb-3">Status</h3>
+                <h3 className="font-medium mb-3">Category</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
-                    variant={filters.status === "all" ? "default" : "outline"}
+                    variant={filters.category === "all" ? "default" : "outline"}
                     size="sm"
                     onClick={() => {
                       triggerHaptic("light")
-                      setFilters((prev) => ({ ...prev, status: "all" }))
+                      setFilters((prev) => ({ ...prev, category: "all" }))
                     }}
                     className="h-12"
                   >
-                    All Status
+                    All Categories
+                  </Button>
+                  {categories.map((cat) => (
+                    <Button
+                      key={cat}
+                      variant={filters.category === cat ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        triggerHaptic("light")
+                        setFilters((prev) => ({ ...prev, category: cat }))
+                      }}
+                      className="h-12"
+                    >
+                      {cat}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Gender Filter */}
+              <div>
+                <h3 className="font-medium mb-3">Gender</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    variant={filters.gender === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      triggerHaptic("light")
+                      setFilters((prev) => ({ ...prev, gender: "all" }))
+                    }}
+                    className="h-12"
+                  >
+                    All
                   </Button>
                   <Button
-                    variant={filters.status === "online" ? "default" : "outline"}
+                    variant={filters.gender === "Male" ? "default" : "outline"}
                     size="sm"
                     onClick={() => {
                       triggerHaptic("light")
-                      setFilters((prev) => ({ ...prev, status: "online" }))
+                      setFilters((prev) => ({ ...prev, gender: "Male" }))
                     }}
                     className="h-12"
                   >
-                    <UserPresenceIndicator status="online" size="sm" className="mr-2" />
-                    Online
+                    Male
                   </Button>
                   <Button
-                    variant={filters.status === "away" ? "default" : "outline"}
+                    variant={filters.gender === "Female" ? "default" : "outline"}
                     size="sm"
                     onClick={() => {
                       triggerHaptic("light")
-                      setFilters((prev) => ({ ...prev, status: "away" }))
+                      setFilters((prev) => ({ ...prev, gender: "Female" }))
                     }}
                     className="h-12"
                   >
-                    <UserPresenceIndicator status="away" size="sm" className="mr-2" />
-                    Away
-                  </Button>
-                  <Button
-                    variant={filters.status === "offline" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      triggerHaptic("light")
-                      setFilters((prev) => ({ ...prev, status: "offline" }))
-                    }}
-                    className="h-12"
-                  >
-                    <UserPresenceIndicator status="offline" size="sm" className="mr-2" />
-                    Offline
+                    Female
                   </Button>
                 </div>
               </div>
@@ -723,10 +652,7 @@ export function MobileMemberSelector({
                   }}
                   className="relative"
                 >
-                  <div className="flex items-center space-x-1">
-                    <Settings2 className="w-5 h-5" />
-                    <span className="text-xs font-medium">Filter</span>
-                  </div>
+                  <Settings2 className="w-5 h-5" />
                   {getFilterCount() > 0 && (
                     <Badge variant="destructive" className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs">
                       {getFilterCount()}
@@ -804,7 +730,6 @@ export function MobileMemberSelector({
                 <div className="flex items-center justify-between p-4 bg-muted/30 flex-shrink-0">
                   <div className="flex items-center space-x-2">
                     <span className="text-sm font-medium">{filteredAndSortedEmployees.length} results</span>
-                    {viewMode === "starred" && <Star className="w-4 h-4 text-yellow-500" />}
                   </div>
                   <Button variant="ghost" size="sm" onClick={handleSelectAll} className="text-sm">
                     {filteredAndSortedEmployees.every((emp) =>
@@ -818,7 +743,11 @@ export function MobileMemberSelector({
                 {/* Employee List */}
                 <ScrollArea className="flex-1 min-h-0">
                   <div className="p-3 space-y-2 pb-20">
-                    {filteredAndSortedEmployees.map((employee) => {
+                    {isLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : filteredAndSortedEmployees.map((employee) => {
                       const isSelected = selectedEmployees.some((emp) => emp.id === employee.id)
                       const userStatus = getUserStatus(employee.id)
 
@@ -877,7 +806,7 @@ export function MobileMemberSelector({
                       )
                     })}
 
-                    {filteredAndSortedEmployees.length === 0 && (
+                    {!isLoading && filteredAndSortedEmployees.length === 0 && (
                       <div className="text-center py-12">
                         <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                         <p className="text-lg font-medium text-muted-foreground">No employees found</p>

@@ -45,6 +45,7 @@ export function SimpleMessageBubble({
   onCopy
 }: SimpleMessageBubbleProps) {
   const [showActions, setShowActions] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const getInitials = (name: string) => {
     return name
@@ -118,71 +119,84 @@ export function SimpleMessageBubble({
           </div>
           
           {/* Message Actions */}
-          {showActions && (
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {onReply && (
+          <div className="flex items-center gap-1">
+            {onReply && (showActions || dropdownOpen) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => onReply(message)}
+                title="Reply"
+              >
+                <Reply className="h-3 w-3" />
+              </Button>
+            )}
+
+            <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+              <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => onReply(message)}
-                  title="Reply"
+                  className={cn(
+                    "h-6 w-6 p-0 transition-all",
+                    dropdownOpen || showActions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  )}
                 >
-                  <Reply className="h-3 w-3" />
+                  <MoreVertical className="h-3 w-3" />
                 </Button>
-              )}
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[140px]">
+                {onReply && (
+                  <>
+                    <DropdownMenuItem onClick={() => {
+                      onReply(message)
+                      setDropdownOpen(false)
+                    }}>
+                      <Reply className="h-4 w-4 mr-2" />
+                      Reply
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                
+                <DropdownMenuItem onClick={() => {
+                  handleCopy()
+                  setDropdownOpen(false)
+                }}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy text
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={() => setDropdownOpen(false)}>
+                  <Forward className="h-4 w-4 mr-2" />
+                  Forward
+                </DropdownMenuItem>
+                
+                {(onEdit || onDelete) && <DropdownMenuSeparator />}
+                {onEdit && (
+                  <DropdownMenuItem onClick={() => {
+                    onEdit(message)
+                    setDropdownOpen(false)
+                  }}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      onDelete(message.id.toString())
+                      setDropdownOpen(false)
+                    }}
+                    className="text-destructive focus:text-destructive"
                   >
-                    <MoreVertical className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {onReply && (
-                    <>
-                      <DropdownMenuItem onClick={() => onReply(message)}>
-                        <Reply className="h-4 w-4 mr-2" />
-                        Reply
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  
-                  <DropdownMenuItem onClick={handleCopy}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy text
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
                   </DropdownMenuItem>
-                  
-                  <DropdownMenuItem>
-                    <Forward className="h-4 w-4 mr-2" />
-                    Forward
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuSeparator />
-                  {onEdit && (
-                    <DropdownMenuItem onClick={() => onEdit(message)}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                  )}
-                  {onDelete && (
-                    <DropdownMenuItem 
-                      onClick={() => onDelete(message.id.toString())}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     )
@@ -234,54 +248,61 @@ export function SimpleMessageBubble({
         </div>
         
         {/* Message Actions */}
-        {showActions && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {onReply && (
+        <div className="flex items-center gap-1">
+          {onReply && (showActions || dropdownOpen) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => onReply(message)}
+              title="Reply"
+            >
+              <Reply className="h-3 w-3" />
+            </Button>
+          )}
+
+          <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => onReply(message)}
-                title="Reply"
-              >
-                <Reply className="h-3 w-3" />
-              </Button>
-            )}
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                >
-                  <MoreVertical className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {onReply && (
-                  <>
-                    <DropdownMenuItem onClick={() => onReply(message)}>
-                      <Reply className="h-4 w-4 mr-2" />
-                      Reply
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
+                className={cn(
+                  "h-6 w-6 p-0 transition-all",
+                  dropdownOpen || showActions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                 )}
-                
-                <DropdownMenuItem onClick={handleCopy}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy text
-                </DropdownMenuItem>
-                
-                <DropdownMenuItem>
-                  <Forward className="h-4 w-4 mr-2" />
-                  Forward
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+              >
+                <MoreVertical className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[140px]">
+              {onReply && (
+                <>
+                  <DropdownMenuItem onClick={() => {
+                    onReply(message)
+                    setDropdownOpen(false)
+                  }}>
+                    <Reply className="h-4 w-4 mr-2" />
+                    Reply
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              
+              <DropdownMenuItem onClick={() => {
+                handleCopy()
+                setDropdownOpen(false)
+              }}>
+                <Copy className="h-4 w-4 mr-2" />
+                Copy text
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={() => setDropdownOpen(false)}>
+                <Forward className="h-4 w-4 mr-2" />
+                Forward
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </div>
   )
