@@ -1,7 +1,7 @@
 import { Employee } from "@/lib/supabase";
 import { EmployeeCard } from "./employee-card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Phone, Mail, MapPin, User } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ interface EmployeeListProps {
   hasMore?: boolean;
   onLoadMore?: () => void;
   totalCount?: number;
+  scrollableTarget?: string;
 }
 
 function EmployeeListItem({ employee }: { employee: Employee }) {
@@ -37,9 +38,10 @@ function EmployeeListItem({ employee }: { employee: Employee }) {
   };
 
   return (
-    <div className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+    <div className="flex items-center space-x-4 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors bg-card">
       <Avatar className="h-10 w-10 flex-shrink-0">
-        <AvatarFallback className="bg-primary/10 text-primary font-medium">
+        <AvatarImage src={employee.profile_image || undefined} />
+        <AvatarFallback className="bg-primary/20 dark:bg-primary/30 text-primary font-medium">
           {getInitials(employee.name)}
         </AvatarFallback>
       </Avatar>

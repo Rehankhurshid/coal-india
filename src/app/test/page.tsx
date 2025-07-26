@@ -39,15 +39,15 @@ export default function TestPage() {
   }, [])
 
   if (loading) {
-    return <div className="p-8">Loading...</div>
+    return <div className="h-full overflow-y-auto p-8">Loading...</div>
   }
 
   if (error) {
-    return <div className="p-8 text-red-500">Error: {error}</div>
+    return <div className="h-full overflow-y-auto p-8 text-red-500">Error: {error}</div>
   }
 
   return (
-    <div className="p-8">
+    <div className="h-full overflow-y-auto p-8">
       <h1 className="text-2xl font-bold mb-4">Test Page</h1>
       <p>Found {employees.length} employees</p>
       <div className="grid gap-4 mt-4">

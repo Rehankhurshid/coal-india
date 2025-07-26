@@ -1,15 +1,19 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Phone, Mail, MapPin, User, Clock } from "lucide-react";
 import { Employee } from "@/lib/supabase";
+import { EmployeeDetailsModalEnhanced } from "./employee-details-modal-enhanced";
+import * as React from "react";
 
 interface EmployeeCardProps {
   employee: Employee;
 }
 
 export function EmployeeCard({ employee }: EmployeeCardProps) {
+  const [showDetailModal, setShowDetailModal] = React.useState(false);
+  
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -37,12 +41,13 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
   };
 
   return (
-    <Card className="hover:shadow-lg transition-shadow bg-card overflow-hidden">
+        <Card className="hover:shadow-lg dark:hover:shadow-xl dark:hover:shadow-primary/5 transition-all duration-200 bg-card border-border overflow-hidden group">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3 min-w-0 flex-1">
-            <Avatar className="h-12 w-12 flex-shrink-0">
-              <AvatarFallback className="bg-primary/10 text-primary font-medium">
+            <Avatar className="h-12 w-12 flex-shrink-0 ring-2 ring-border group-hover:ring-primary/30 transition-all">
+              <AvatarImage src={employee.profile_image || undefined} />
+              <AvatarFallback className="bg-primary/20 dark:bg-primary/30 text-primary font-medium">
                 {getInitials(employee.name)}
               </AvatarFallback>
             </Avatar>
@@ -151,11 +156,24 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
               <Mail className="h-4 w-4" />
             </Button>
           )}
-          <Button size="sm" variant="default" className="flex-1">
+          <Button 
+            size="sm" 
+            variant="default" 
+            className="flex-1"
+            onClick={() => setShowDetailModal(true)}
+          >
             View Details
           </Button>
         </div>
       </CardContent>
+
+      {showDetailModal && (
+        <EmployeeDetailsModalEnhanced
+          empCode={employee.emp_code}
+          open={showDetailModal}
+          onOpenChange={setShowDetailModal}
+        />
+      )}
     </Card>
   );
 }

@@ -1,9 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = createSupabaseClient(supabaseUrl, supabaseKey)
+
+// Export createClient function for API routes
+export const createClient = () => createSupabaseClient(supabaseUrl, supabaseKey)
 
 // Types for our employee data
 export interface Employee {
@@ -13,18 +16,46 @@ export interface Employee {
   father_name?: string
   designation?: string
   dept?: string
+  sub_dept?: string
   area_name?: string
   unit_name?: string
+  unit_code?: string
+  dept_code?: string
   email_id?: string
   phone_1?: string
   phone_2?: string
+  phoneNumber1?: string
+  phoneNumber2?: string
   grade?: string
   category?: string
   gender?: string
   blood_group?: string
   dob?: string
+  date_of_birth?: string
+  // Fixed field names to match database schema
+  dt_appt?: string // Date of Appointment
+  company_posting_date?: string // Date of Joining
+  incr_date?: string // Last Increment Date
+  grade_joining_date?: string // Last Promotion Date
+  area_joining_date?: string // Area Joining Date
+  expected_exit_date?: string // Expected Exit Date
   permanent_address?: string
   present_address?: string
+  profile_image?: string
+  caste_code?: string // Caste
+  religion_code?: string // Religion
+  marital_status_code?: string // Marital Status
+  spouse_name?: string
+  spouse_emp_code?: string
+  bank_acc_no?: string // Bank Account Number
+  bank?: string // Bank Name
+  basic_salary?: number
+  hra?: number
+  ncwa_basic?: number
+  aadhaar_no?: string
+  pan_no?: string
+  discipline?: string
+  pay_flag?: string
   is_active: boolean
   created_at: string
   updated_at: string

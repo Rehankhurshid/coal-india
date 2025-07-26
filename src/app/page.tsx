@@ -7,11 +7,14 @@ import { FiltersSidebar } from "@/components/filters-sidebar";
 import { EmployeeList } from "@/components/employee-list";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Button } from "@/components/ui/button";
-import { SlidersHorizontal, X, LogOut, Grid3X3, List } from "lucide-react";
+import { SlidersHorizontal, X, LogOut, Grid3X3, List, MessageSquare } from "lucide-react";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useEmployeeRefresh } from "@/lib/hooks/use-employee-refresh";
+import Link from "next/link";
 
 export default function Home() {
   const { employee, logout } = useAuth();
+  const { registerRefreshHandler } = useEmployeeRefresh();
   const [employees, setEmployees] = React.useState<Employee[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
@@ -21,24 +24,35 @@ export default function Home() {
   const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid');
   const [showMobileFilters, setShowMobileFilters] = React.useState(false);
 
+  // Search states - separate immediate input from debounced search
+  const [searchInput, setSearchInput] = React.useState(''); // For immediate UI updates
+  const [searchQuery, setSearchQuery] = React.useState(''); // For actual API calls (debounced)
+
+  // Debounce search input to avoid constant API calls
+  React.useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
+
   // Prevent body scroll when mobile filters are open
   React.useEffect(() => {
     if (showMobileFilters) {
+      // Use a more specific approach to prevent scrolling
+      const originalStyle = window.getComputedStyle(document.body).overflow;
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+      
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
     }
-    
-    // Cleanup on unmount
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, [showMobileFilters]);
 
   const PAGE_SIZE = 50; // Load 50 employees at a time
 
   // Filter states
-  const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedDept, setSelectedDept] = React.useState('all');
   const [selectedGrade, setSelectedGrade] = React.useState('all');
   const [selectedCategory, setSelectedCategory] = React.useState('all');
@@ -185,9 +199,27 @@ export default function Home() {
     selectedBloodGroup,
   ]);
 
+  // Register refresh handler for employee updates
+  React.useEffect(() => {
+    const refreshHandler = () => {
+      const currentFilters = {
+        searchQuery,
+        selectedDept,
+        selectedGrade,
+        selectedCategory,
+        selectedGender,
+        selectedBloodGroup
+      };
+      fetchEmployees(0, true, currentFilters);
+    };
+    
+    registerRefreshHandler(refreshHandler);
+  }, [registerRefreshHandler, fetchEmployees, searchQuery, selectedDept, selectedGrade, selectedCategory, selectedGender, selectedBloodGroup]);
+
   // Clear all filters
   const clearFilters = React.useCallback(() => {
-    setSearchQuery("");
+    setSearchInput(""); // Clear input field
+    setSearchQuery(""); // Clear debounced search
     setSelectedDept("all");
     setSelectedGrade("all");
     setSelectedCategory("all");
@@ -316,15 +348,30 @@ export default function Home() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
-        {/* Main Layout */}
+      <div id="scrollableDiv" className="h-full overflow-y-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* Desktop Sidebar - Hidden on mobile */}
+            {/* Desktop Sidebar */}
             <div className="hidden lg:block w-80 flex-shrink-0">
-              <div className="bg-white rounded-lg shadow-sm border p-6 sticky top-20">
+              <div className="sticky top-4 space-y-4">
+                {/* Quick Messaging Access */}
+                <div className="bg-card rounded-lg shadow-sm border border-border p-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Messages
+                  </h3>
+                  <Link href="/messaging">
+                    <Button variant="outline" className="w-full justify-start" size="sm">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Open Messaging
+                    </Button>
+                  </Link>
+                </div>
+
+                {/* Filters */}
+                <div className="bg-card rounded-lg shadow-sm border border-border p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <SlidersHorizontal className="h-5 w-5" />
                     Filters
                   </h2>
@@ -348,192 +395,192 @@ export default function Home() {
                         <List className="h-4 w-4" />
                       </Button>
                     </div>
-                    <span className="text-sm text-gray-500">
-                      {totalCount} employees
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={logout}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <LogOut className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
+                
+                {/* Employee Count */}
+                <div className="mb-4 text-center text-sm text-muted-foreground">
+                  {totalCount} employees
+                </div>
               
-              <FiltersSidebar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                selectedDept={selectedDept}
-                onDeptChange={setSelectedDept}
-                selectedGrade={selectedGrade}
-                onGradeChange={setSelectedGrade}
-                selectedCategory={selectedCategory}
-                onCategoryChange={setSelectedCategory}
-                selectedGender={selectedGender}
-                onGenderChange={setSelectedGender}
-                selectedBloodGroup={selectedBloodGroup}
-                onBloodGroupChange={setSelectedBloodGroup}
-                onClearFilters={clearFilters}
-                totalEmployees={totalCount}
-                filteredEmployees={employees.length}
-                departments={departments}
-                grades={grades}
-                categories={categories}
-                bloodGroups={bloodGroups}
+                <FiltersSidebar
+                  searchQuery={searchInput}
+                  onSearchChange={setSearchInput}
+                  selectedDept={selectedDept}
+                  onDeptChange={setSelectedDept}
+                  selectedGrade={selectedGrade}
+                  onGradeChange={setSelectedGrade}
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                  selectedGender={selectedGender}
+                  onGenderChange={setSelectedGender}
+                  selectedBloodGroup={selectedBloodGroup}
+                  onBloodGroupChange={setSelectedBloodGroup}
+                  onClearFilters={clearFilters}
+                  totalEmployees={totalCount}
+                  filteredEmployees={employees.length}
+                  departments={departments}
+                  grades={grades}
+                  categories={categories}
+                  bloodGroups={bloodGroups}
+                />
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+              {/* Welcome Message */}
+              {employee && (
+                <div className="bg-card rounded-lg shadow-sm border border-border p-4 mb-6">
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Welcome, {employee.name}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {employee.designation} • {employee.dept} • {employee.emp_code}
+                  </p>
+                </div>
+              )}
+
+              {/* Mobile Filter Button */}
+              <div className="lg:hidden mb-4 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  {totalCount} employees
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* View Mode Toggle */}
+                  <div className="flex border rounded-md">
+                    <Button
+                      variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('grid')}
+                      className="rounded-r-none px-3"
+                    >
+                      <Grid3X3 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={viewMode === 'list' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('list')}
+                      className="rounded-l-none px-3"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="flex items-center gap-2"
+                    onClick={() => setShowMobileFilters(true)}
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Filters
+                  </Button>
+                </div>
+              </div>
+
+              {/* Employee List */}
+              <EmployeeList
+                employees={employees}
+                viewMode={viewMode}
+                isLoading={isLoading}
+                isLoadingMore={isLoadingMore}
+                hasMore={hasMore}
+                onLoadMore={loadMoreEmployees}
+                totalCount={totalCount}
+                scrollableTarget="scrollableDiv"
               />
             </div>
           </div>
-
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
-            {/* Welcome Message */}
-            {employee && (
-              <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Welcome, {employee.name}
-                </h2>
-                <p className="text-sm text-gray-600">
-                  {employee.designation} • {employee.dept} • {employee.emp_code}
-                </p>
+        </div>
+      
+        {/* Mobile Floating Buttons */}
+        <div className="lg:hidden fixed bottom-6 right-6 z-40 flex flex-col gap-3">
+          {/* Messaging Button */}
+          <Link href="/messaging">
+            <Button 
+              size="lg"
+              className="rounded-full shadow-lg h-12 w-12 p-0 bg-blue-600 hover:bg-blue-700"
+              title="Messages"
+            >
+              <MessageSquare className="h-5 w-5" />
+            </Button>
+          </Link>
+          
+          {/* Filter Button */}
+          <div className="relative">
+            <Button 
+              size="lg"
+              className="rounded-full shadow-lg h-14 w-14 p-0"
+              onClick={() => setShowMobileFilters(true)}
+            >
+              <SlidersHorizontal className="h-6 w-6" />
+            </Button>
+            {/* Active filters badge */}
+            {(selectedDept !== "all" || selectedGrade !== "all" || 
+              selectedCategory !== "all" || selectedGender !== "all" || selectedBloodGroup !== "all" || 
+              searchInput) && (
+              <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
+                {[selectedDept, selectedGrade, selectedCategory, selectedGender, selectedBloodGroup]
+                  .filter(val => val !== "all").length + (searchInput ? 1 : 0)}
               </div>
             )}
+          </div>
+        </div>
 
-            {/* Mobile Filter Button */}
-            <div className="lg:hidden mb-4 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                {totalCount} employees
-              </div>
-              <div className="flex items-center gap-2">
-                {/* View Mode Toggle */}
-                <div className="flex border rounded-md">
-                  <Button
-                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('grid')}
-                    className="rounded-r-none px-3"
-                  >
-                    <Grid3X3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'list' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('list')}
-                    className="rounded-l-none px-3"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="flex items-center gap-2"
-                  onClick={() => setShowMobileFilters(true)}
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Filters
-                </Button>
+        {/* Mobile Filter Bottom Sheet */}
+        {showMobileFilters && (
+          <div className="lg:hidden fixed inset-0 z-50 flex items-end">
+            <div className="fixed inset-0 bg-black/50 dark:bg-black/70" onClick={() => setShowMobileFilters(false)} />
+            <div className="relative bg-background border-border rounded-t-xl w-full max-h-[85vh] overflow-hidden shadow-lg">
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h2 className="text-lg font-semibold text-foreground">Filters</h2>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={logout}
-                  className="text-red-600 hover:text-red-700"
+                  onClick={() => setShowMobileFilters(false)}
                 >
-                  <LogOut className="h-4 w-4" />
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="p-4 overflow-y-auto max-h-[calc(85vh-120px)]">
+                <div className="mb-4 text-center text-sm text-muted-foreground">
+                  {totalCount} employees
+                </div>
+                <Filters
+                  searchQuery={searchInput}
+                  onSearchChange={setSearchInput}
+                  selectedDept={selectedDept}
+                  onDeptChange={setSelectedDept}
+                  selectedGrade={selectedGrade}
+                  onGradeChange={setSelectedGrade}
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                  selectedGender={selectedGender}
+                  onGenderChange={setSelectedGender}
+                  selectedBloodGroup={selectedBloodGroup}
+                  onBloodGroupChange={setSelectedBloodGroup}
+                  onClearFilters={clearFilters}
+                  totalEmployees={totalCount}
+                  filteredEmployees={employees.length}
+                  departments={departments}
+                  grades={grades}
+                  categories={categories}
+                  bloodGroups={bloodGroups}
+                />
+              </div>
+              <div className="p-4 border-t bg-gray-50">
+                <Button 
+                  className="w-full"
+                  onClick={() => setShowMobileFilters(false)}
+                >
+                  Apply Filters
                 </Button>
               </div>
             </div>
-
-            {/* Employee List */}
-            <EmployeeList
-              employees={employees}
-              viewMode={viewMode}
-              isLoading={isLoading}
-              isLoadingMore={isLoadingMore}
-              hasMore={hasMore}
-              onLoadMore={loadMoreEmployees}
-              totalCount={totalCount}
-            />
           </div>
-        </div>
+        )}
       </div>
-
-      {/* Mobile Floating Filter Button */}
-      <div className="lg:hidden fixed bottom-6 right-6 z-40">
-        <div className="relative">
-          <Button 
-            size="lg"
-            className="rounded-full shadow-lg h-14 w-14 p-0"
-            onClick={() => setShowMobileFilters(true)}
-          >
-            <SlidersHorizontal className="h-6 w-6" />
-          </Button>
-          {/* Active filters badge */}
-          {(selectedDept !== "all" || selectedGrade !== "all" || 
-            selectedCategory !== "all" || selectedGender !== "all" || selectedBloodGroup !== "all" || 
-            searchQuery) && (
-            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
-              {[selectedDept, selectedGrade, selectedCategory, selectedGender, selectedBloodGroup]
-                .filter(val => val !== "all").length + (searchQuery ? 1 : 0)}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile Filter Bottom Sheet */}
-      {showMobileFilters && (
-        <div className="lg:hidden fixed inset-0 z-50 flex items-end">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowMobileFilters(false)} />
-          <div className="relative bg-white rounded-t-xl w-full max-h-[85vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">Filters</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowMobileFilters(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="p-4 overflow-y-auto max-h-[calc(85vh-120px)]">
-              <div className="mb-4 text-center text-sm text-gray-500">
-                {totalCount} employees
-              </div>
-              <Filters
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                selectedDept={selectedDept}
-                onDeptChange={setSelectedDept}
-                selectedGrade={selectedGrade}
-                onGradeChange={setSelectedGrade}
-                selectedCategory={selectedCategory}
-                onCategoryChange={setSelectedCategory}
-                selectedGender={selectedGender}
-                onGenderChange={setSelectedGender}
-                selectedBloodGroup={selectedBloodGroup}
-                onBloodGroupChange={setSelectedBloodGroup}
-                onClearFilters={clearFilters}
-                totalEmployees={totalCount}
-                filteredEmployees={employees.length}
-                departments={departments}
-                grades={grades}
-                categories={categories}
-                bloodGroups={bloodGroups}
-              />
-            </div>
-            <div className="p-4 border-t bg-gray-50">
-              <Button 
-                className="w-full"
-                onClick={() => setShowMobileFilters(false)}
-              >
-                Apply Filters
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
     </ProtectedRoute>
   );
 }

@@ -54,9 +54,9 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
     <div className="space-y-6">
       {/* Search */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Search</label>
+        <label className="text-sm font-medium text-foreground">Search</label>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder="Search by name, ID, designation..."
             value={props.searchQuery}
@@ -68,7 +68,7 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
 
       {/* Department Filter */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+        <label className="text-sm font-medium text-foreground flex items-center gap-2">
           <Building2 className="h-4 w-4" />
           Department
         </label>
@@ -89,7 +89,7 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
 
       {/* Grade Filter */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+        <label className="text-sm font-medium text-foreground flex items-center gap-2">
           <User className="h-4 w-4" />
           Grade
         </label>
@@ -110,7 +110,7 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
 
       {/* Category Filter */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+        <label className="text-sm font-medium text-foreground flex items-center gap-2">
           <Briefcase className="h-4 w-4" />
           Category
         </label>
@@ -132,7 +132,7 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
       {/* Gender and Blood Group Filters - In One Row */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+          <label className="text-sm font-medium text-foreground flex items-center gap-2">
             <Users className="h-4 w-4" />
             Gender
           </label>
@@ -149,7 +149,7 @@ export function FiltersSidebar(props: FiltersSidebarProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+          <label className="text-sm font-medium text-foreground flex items-center gap-2">
             <Heart className="h-4 w-4" />
             Blood Group
           </label>
