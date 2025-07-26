@@ -1,3 +1,5 @@
+'use client'
+
 import { RealDataMessagingApp } from '@/components/real-data-messaging-app'
 import { useAuth } from '@/lib/hooks/use-auth'
 
