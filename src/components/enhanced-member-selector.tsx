@@ -400,7 +400,7 @@ export function EnhancedMemberSelector({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] w-[90vw] max-w-[90vw] min-w-[80vw] p-0">
+      <DialogContent className="max-h-[90vh] w-[95vw] max-w-[1400px] min-w-[900px] p-0">
         <div className="flex h-[85vh] overflow-hidden">
           {/* Main Selection Area */}
           <div className={`flex flex-col min-w-0 transition-all duration-200 ${selectedEmployees.length > 0 ? 'flex-[2]' : 'flex-1'}`}>
@@ -719,7 +719,7 @@ export function EnhancedMemberSelector({
 
           {/* Selected Members Sidebar */}
           {selectedEmployees.length > 0 && (
-            <div className="w-80 border-l bg-muted/20 flex-shrink-0 flex flex-col">
+            <div className="w-96 border-l bg-muted/20 flex-shrink-0 flex flex-col">
               <div className="p-4 border-b flex-shrink-0">
                 <h3 className="font-semibold flex items-center space-x-2">
                   <Users className="w-4 h-4" />
