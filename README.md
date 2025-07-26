@@ -4,12 +4,28 @@ A modern employee directory application for South Eastern Coalfields Limited (SE
 
 ## Features
 
+### Employee Directory
+
 - **Employee Search**: Search employees by name, employee code, designation, or department
 - **Advanced Filtering**: Filter by department, location, grade, category, gender, and blood group
 - **Multiple View Modes**: Switch between grid and list views
 - **Real-time Statistics**: View department-wise employee distribution and statistics
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
 - **Modern UI**: Built with shadcn/ui components following V0 design principles
+
+### Messaging System ✅
+
+- **Group Creation and Management**: Create and manage team groups with member selection
+- **Real-time Messaging**: Instant message delivery with WebSocket support
+- **Typing Indicators**: See when others are typing in real-time
+- **Message Status Tracking**: Track message delivery (pending → sent → delivered → read)
+- **Edit/Delete Messages**: Edit your messages or delete them with soft delete
+- **Member Management**: Advanced member selector with search and filters
+- **Unread Message Counts**: Visual badges showing unread messages per conversation
+- **Mobile Optimized**: Full responsive design with haptic feedback
+- **Offline Support**: Queue messages when offline, sync when connection restored
+
+[View full messaging features documentation →](docs/MESSAGING-FEATURES-COMPLETE.md)
 
 ## Technology Stack
 
@@ -23,10 +39,20 @@ A modern employee directory application for South Eastern Coalfields Limited (SE
 
 The application uses the following main tables:
 
+### Employee Directory Tables
+
 - `employees`: Main employee data with personal, contact, and job information
 - `departments`: Department structure and hierarchy
 - `areas`: Mining areas and locations
 - `designations`: Job titles and grades
+
+### Messaging System Tables
+
+- `messaging_groups`: Group information and metadata
+- `messaging_group_members`: Group membership and roles
+- `messaging_messages`: Message content and metadata
+- `messaging_read_receipts`: Message read status tracking
+- `messaging_reactions`: Message reactions and emojis
 
 ## Features Overview
 
