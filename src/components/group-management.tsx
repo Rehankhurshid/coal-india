@@ -34,6 +34,11 @@ interface GroupManagementProps {
     description: string
     members: Employee[]
   }
+  onCreateGroup?: (groupData: {
+    name: string
+    description: string
+    members: Employee[]
+  }) => Promise<void>
 }
 
 const mockEmployees: Employee[] = [
@@ -99,7 +104,7 @@ const mockEmployees: Employee[] = [
   },
 ]
 
-export function GroupManagement({ isOpen, onClose, mode, existingGroup }: GroupManagementProps) {
+export function GroupManagement({ isOpen, onClose, mode, existingGroup, onCreateGroup }: GroupManagementProps) {
   const [step, setStep] = useState<"select-members" | "group-details">(
     mode === "edit" ? "group-details" : "select-members",
   )
@@ -185,12 +190,19 @@ export function GroupManagement({ isOpen, onClose, mode, existingGroup }: GroupM
   const handleCreateGroup = async () => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      console.log("Creating group:", { groupName, groupDescription, members: selectedEmployees })
-
-      success("Group Created", `"${groupName}" has been created successfully with ${selectedEmployees.length} members.`)
+      if (onCreateGroup) {
+        // Use the provided onCreateGroup function for real implementation
+        await onCreateGroup({
+          name: groupName,
+          description: groupDescription,
+          members: selectedEmployees
+        })
+      } else {
+        // Fallback to simulation
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+        console.log("Creating group:", { groupName, groupDescription, members: selectedEmployees })
+        success("Group Created", `"${groupName}" has been created successfully with ${selectedEmployees.length} members.`)
+      }
       onClose()
     } catch (err) {
       error("Failed to Create Group", "Please try again later.")

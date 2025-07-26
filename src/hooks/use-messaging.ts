@@ -134,11 +134,15 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
     try {
       setLoading(true)
       setError(null)
+      console.log('Creating group with data:', groupData)
       const newGroup = await SupabaseMessagingService.createGroup(currentUserId, groupData)
+      console.log('Group created:', newGroup)
       setState(prev => ({ 
         ...prev, 
         groups: [newGroup, ...prev.groups]
       }))
+      // Reload groups to ensure the new group appears and is synced
+      await loadGroups()
     } catch (error) {
       console.error('Error creating group:', error)
       setError(error instanceof Error ? error.message : 'Failed to create group')
@@ -146,7 +150,7 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
     } finally {
       setLoading(false)
     }
-  }, [currentUserId, setError, setLoading])
+  }, [currentUserId, setError, setLoading, loadGroups])
 
   // Select a group and load its messages
   const selectGroup = useCallback(async (groupId: number) => {

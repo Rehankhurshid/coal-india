@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppNav } from "@/components/app-nav";
@@ -17,8 +17,41 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SECL Directory - Coal India Employee Directory",
-  description: "South Eastern Coalfields Limited employee directory for Coal India",
+  title: "Coal India Messaging - Employee Directory & Communication",
+  description: "Employee Directory and Messaging System for Coal India",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "CI Messaging",
+    startupImage: [
+      "/icon-192x192.png",
+    ],
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: "/favicon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+  ],
 };
 
 export default function RootLayout({
@@ -40,7 +73,7 @@ export default function RootLayout({
           <EmployeeRefreshProvider>
             <div className="h-screen bg-background font-sans flex flex-col">
               <AppNav />
-              <main className="flex-1 overflow-hidden">
+              <main className="flex-1 overflow-auto">
                 {children}
               </main>
               <Toaster />

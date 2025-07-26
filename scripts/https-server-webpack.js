@@ -1,0 +1,29 @@
+const { createServer } = require("https");
+const { parse } = require("url");
+const next = require("next");
+const fs = require("fs");
+
+const dev = process.env.NODE_ENV !== "production";
+const app = next({
+  dev,
+  // Explicitly disable turbopack for stability
+  turbo: false,
+});
+const handle = app.getRequestHandler();
+
+const httpsOptions = {
+  key: fs.readFileSync("./certificates/localhost+2-key.pem"),
+  cert: fs.readFileSync("./certificates/localhost+2.pem"),
+};
+
+app.prepare().then(() => {
+  createServer(httpsOptions, (req, res) => {
+    const parsedUrl = parse(req.url, true);
+    handle(req, res, parsedUrl);
+  }).listen(3000, (err) => {
+    if (err) throw err;
+    console.log("> Ready on https://localhost:3000");
+    console.log("> Using locally-trusted certificates (no browser warnings!)");
+    console.log("> Using webpack (not turbopack) for stability");
+  });
+});

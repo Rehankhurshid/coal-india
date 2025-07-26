@@ -185,34 +185,25 @@ export function OtpForm({ sessionId, employeeId, onSuccess, onBack }: OtpFormPro
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">Verify OTP</h2>
-        <p className="text-gray-600">
-          Enter the 6-digit code sent to your registered mobile number
-        </p>
-        <p className="text-sm text-gray-500">Employee ID: {employeeId}</p>
-      </div>
-
+    <div className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          <div className="text-sm">{error}</div>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg backdrop-blur-sm animate-in fade-in-0 slide-in-from-top-2 duration-300">
+          {error}
         </div>
       )}
 
       {/* Development OTP Display */}
       {process.env.NODE_ENV === 'development' && developmentOtp && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md">
-          <div className="text-sm font-medium">Development OTP: {developmentOtp}</div>
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 px-4 py-3 rounded-lg backdrop-blur-sm">
+          <div className="font-medium">Development OTP: {developmentOtp}</div>
         </div>
       )}
 
       <div className="space-y-6">
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-center block">
-            Enter 6-digit OTP
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center block">
+            Enter Verification Code
           </Label>
           <div className="flex justify-center">
             <InputOTP
@@ -220,14 +211,15 @@ export function OtpForm({ sessionId, employeeId, onSuccess, onBack }: OtpFormPro
               value={otpValue}
               onChange={setOtpValue}
               disabled={isLoading}
+              className="gap-3"
             >
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
+              <InputOTPGroup className="gap-3">
+                <InputOTPSlot index={0} className="w-14 h-14 text-xl font-bold rounded-xl border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 hover:border-blue-400 transform hover:scale-105 focus:scale-105 transition-all duration-200 ease-out shadow-sm hover:shadow-md focus:shadow-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-300 delay-0" />
+                <InputOTPSlot index={1} className="w-14 h-14 text-xl font-bold rounded-xl border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 hover:border-blue-400 transform hover:scale-105 focus:scale-105 transition-all duration-200 ease-out shadow-sm hover:shadow-md focus:shadow-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-300 delay-75" />
+                <InputOTPSlot index={2} className="w-14 h-14 text-xl font-bold rounded-xl border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 hover:border-blue-400 transform hover:scale-105 focus:scale-105 transition-all duration-200 ease-out shadow-sm hover:shadow-md focus:shadow-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-300 delay-150" />
+                <InputOTPSlot index={3} className="w-14 h-14 text-xl font-bold rounded-xl border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 hover:border-blue-400 transform hover:scale-105 focus:scale-105 transition-all duration-200 ease-out shadow-sm hover:shadow-md focus:shadow-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-300 delay-225" />
+                <InputOTPSlot index={4} className="w-14 h-14 text-xl font-bold rounded-xl border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 hover:border-blue-400 transform hover:scale-105 focus:scale-105 transition-all duration-200 ease-out shadow-sm hover:shadow-md focus:shadow-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-300 delay-300" />
+                <InputOTPSlot index={5} className="w-14 h-14 text-xl font-bold rounded-xl border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 hover:border-blue-400 transform hover:scale-105 focus:scale-105 transition-all duration-200 ease-out shadow-sm hover:shadow-md focus:shadow-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-300 delay-375" />
               </InputOTPGroup>
             </InputOTP>
           </div>
@@ -236,69 +228,88 @@ export function OtpForm({ sessionId, employeeId, onSuccess, onBack }: OtpFormPro
         {/* Timer */}
         <div className="text-center">
           {timeLeft > 0 ? (
-            <p className="text-sm text-gray-600">
-              OTP expires in {formatTime(timeLeft)}
+            <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center justify-center gap-1 transition-all duration-300">
+              <svg className={`w-4 h-4 ${timeLeft <= 60 ? 'animate-pulse text-orange-500' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12,6 12,12 16,14"></polyline>
+              </svg>
+              <span className={timeLeft <= 60 ? 'text-orange-600 dark:text-orange-400 font-medium' : ''}>
+                Code expires in {formatTime(timeLeft)}
+              </span>
             </p>
           ) : (
-            <p className="text-sm text-red-600">OTP has expired</p>
+            <p className="text-sm text-red-600 dark:text-red-400 flex items-center justify-center gap-1 animate-in fade-in-0 slide-in-from-top-2 duration-300">
+              <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4" y1="4" x2="20" y2="20"></line>
+              </svg>
+              Verification code expired
+            </p>
           )}
         </div>
 
         <Button 
           onClick={handleSubmit} 
-          className="w-full" 
+          className={`w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 ${
+            isLoading ? 'animate-pulse' : ''
+          } ${otpValue.length === 6 && !isLoading ? 'ring-2 ring-blue-500/50 ring-offset-2 ring-offset-white dark:ring-offset-gray-900' : ''}`}
           disabled={isLoading || timeLeft === 0 || otpValue.length !== 6}
         >
           {isLoading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Verifying...
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Verifying your identity...
             </>
           ) : (
-            'Verify OTP'
+            <>
+              <span>Verify & Continue</span>
+              <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </>
           )}
         </Button>
       </div>
 
       {/* Resend OTP */}
-      <div className="text-center space-y-4">
+      <div className="text-center">
         {canResend ? (
           <Button
             variant="outline"
             onClick={handleResendOtp}
             disabled={isLoading}
-            className="flex items-center gap-2"
+            className="h-10 px-6 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-all duration-200 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 hover:scale-105 transform"
           >
-            <RefreshCw className="h-4 w-4" />
-            Resend OTP
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Resend Code
           </Button>
         ) : (
-          <p className="text-sm text-gray-500">
-            Didn't receive the code? You can resend in {formatTime(timeLeft)}
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Didn't receive the code? Resend available in {formatTime(timeLeft)}
           </p>
         )}
       </div>
 
       {/* Development Controls */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="border-t pt-4 space-y-2">
-          <p className="text-xs text-gray-500 text-center">Development Controls</p>
+        <div className="border-t pt-3 space-y-2">
+          <p className="text-xs text-gray-500 text-center">Dev Controls</p>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handleDevSkip}
-              className="flex-1"
+              className="flex-1 text-xs"
             >
-              Skip OTP
+              Skip
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleDevTest}
-              className="flex-1"
+              className="flex-1 text-xs"
             >
-              Fill Test OTP
+              Fill Test
             </Button>
           </div>
         </div>
@@ -308,9 +319,9 @@ export function OtpForm({ sessionId, employeeId, onSuccess, onBack }: OtpFormPro
       <Button
         variant="ghost"
         onClick={onBack}
-        className="w-full flex items-center justify-center gap-2"
+        className="w-full h-10 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-all duration-200"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Login
       </Button>
     </div>

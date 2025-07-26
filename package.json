@@ -5,11 +5,19 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:webpack": "next dev",
+    "dev:https": "next dev --turbopack --experimental-https",
+    "dev:https-webpack": "next dev --experimental-https",
+    "dev:pwa": "next dev --turbopack --experimental-https",
+    "dev:pwa-webpack": "next dev --experimental-https",
+    "dev:mkcert": "node scripts/https-server.js",
+    "dev:mkcert-stable": "node scripts/https-server-webpack.js",
     "build": "next build",
+    "build:pwa": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@ducanh2912/next-pwa": "^10.2.7",
     "@hookform/resolvers": "^5.2.0",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.14",

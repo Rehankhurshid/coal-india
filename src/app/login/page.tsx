@@ -4,8 +4,6 @@ import { useState } from "react";
 import { LoginForm } from "@/components/auth/login-form";
 import { OtpForm } from "@/components/auth/otp-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Moon, Sun } from "lucide-react";
 
 interface LoginState {
   step: 'login' | 'otp';
@@ -16,7 +14,6 @@ interface LoginState {
 
 export default function LoginPage() {
   const [loginState, setLoginState] = useState<LoginState>({ step: 'login' });
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   const handleLoginSuccess = (sessionId: string, employeeId: string, phoneNumber: string) => {
     setLoginState({
@@ -37,44 +34,32 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="w-full max-w-md py-4 sm:py-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl flex items-center justify-center mb-4">
-            <span className="text-white font-bold text-2xl">S</span>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">SECL Directory</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">South Eastern Coalfields Limited</p>
-        </div>
-
-        {/* Theme Toggle */}
-        <div className="flex justify-end mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">Toggle theme</span>
-          </Button>
+        <div className="text-center mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            SECL Directory
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1 sm:mt-2 text-sm">Secure Employee Access Portal</p>
         </div>
 
         {/* Main Card */}
-        <Card className="w-full">
-          <CardHeader className="text-center">
-            <CardTitle>
-              {loginState.step === 'login' ? 'Employee Login' : 'Verify OTP'}
+        <Card className="w-full backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-0 shadow-2xl shadow-blue-500/10 dark:shadow-blue-500/5">
+          <CardHeader className="text-center pb-4 pt-6">
+            <CardTitle className="text-xl font-semibold text-gray-900 dark:text-white">
+              {loginState.step === 'login' ? 'Welcome Back' : 'Verify Identity'}
             </CardTitle>
-            <CardDescription>
-              {loginState.step === 'login' 
-                ? 'Enter your employee ID to continue'
-                : `Enter the OTP sent to ${loginState.phoneNumber?.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')}`
-              }
+            <CardDescription className="text-gray-600 dark:text-gray-400 mt-1">
+              {loginState.step === 'login' ? (
+                'Enter your employee credentials to continue'
+              ) : (
+                `Verification code sent to ${loginState.phoneNumber?.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')}`
+              )}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-6">
             {loginState.step === 'login' ? (
               <LoginForm onSuccess={handleLoginSuccess} />
             ) : (
@@ -89,9 +74,10 @@ export default function LoginPage() {
         </Card>
 
         {/* Footer */}
-        <div className="text-center mt-8 text-sm text-gray-500 dark:text-gray-400">
-          <p>© 2025 South Eastern Coalfields Limited</p>
-          <p className="mt-1">Secure employee directory access</p>
+                {/* Footer */}
+        <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4 sm:mt-6">
+          <p>&copy; 2024 SECL. All rights reserved.</p>
+        </div>
         </div>
       </div>
     </div>
