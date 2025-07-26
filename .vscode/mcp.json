@@ -1,0 +1,47 @@
+{
+  // ───── Inputs ──────────────────────────────────────────────────────────────
+  // These are prompted the first time a server is started, then cached securely.
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "github-token",
+      "description": "GitHub API token for shadcn-ui MCP server",
+      "password": true // ↳ hides text while typing
+    }
+  ],
+
+  // ───── MCP Servers ────────────────────────────────────────────────────────
+  "servers": {
+    // 1. TaskMaster-AI --------------------------------------------------------
+    "TaskMaster-AI": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "--package=task-master-ai", "task-master-ai"],
+      "env": {}
+    },
+
+    // 2. Context7 -------------------------------------------------------------
+    "Context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+
+    // 3. Puppeteer ------------------------------------------------------------
+    "Puppeteer": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"]
+    },
+
+    // 4. shadcn-ui ------------------------------------------------------------
+    "shadcn-ui": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@jpisnice/shadcn-ui-mcp-server",
+        "--github-api-key",
+        "YOUR_GITHUB_TOKEN_HERE" // ← Replace with your actual token
+      ]
+    }
+  }
+}
