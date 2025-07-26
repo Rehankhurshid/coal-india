@@ -40,7 +40,7 @@
       "args": [
         "@jpisnice/shadcn-ui-mcp-server",
         "--github-api-key",
-        "YOUR_GITHUB_TOKEN_HERE" // ← Replace with your actual token
+        "${github-token}" // ← pulled from secure input above
       ]
     }
   }
