@@ -1,12 +1,26 @@
 import webpush from 'web-push';
 
+// Function to ensure URL-safe Base64 format (remove padding)
+function toUrlSafeBase64(base64String: string): string {
+  return base64String.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
 // Configure web-push with VAPID details
 if (process.env.VAPID_PRIVATE_KEY && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
-  webpush.setVapidDetails(
-    'mailto:admin@coalindia.com',
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
+  try {
+    // Ensure keys are in URL-safe Base64 format
+    const publicKey = toUrlSafeBase64(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+    const privateKey = toUrlSafeBase64(process.env.VAPID_PRIVATE_KEY);
+    
+    webpush.setVapidDetails(
+      'mailto:admin@coalindia.com',
+      publicKey,
+      privateKey
+    );
+  } catch (error) {
+    console.error('Error setting VAPID details:', error);
+    console.error('Make sure VAPID keys are properly formatted');
+  }
 }
 
 export interface PushNotificationPayload {
