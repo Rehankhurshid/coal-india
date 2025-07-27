@@ -9,6 +9,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   swcMinify: true,
   workboxOptions: {
     disableDevLogs: process.env.NODE_ENV === "production",
+    importScripts: ["/worker/sw-custom.js"], // Import our custom worker code
   },
   customWorkerDir: "worker",
 

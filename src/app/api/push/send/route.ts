@@ -11,6 +11,17 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[push/send] Received push notification request');
+    
+    // Check if VAPID keys are configured
+    if (!process.env.VAPID_PRIVATE_KEY) {
+      console.error('[push/send] VAPID_PRIVATE_KEY is not configured');
+      return NextResponse.json(
+        { error: 'Push notifications not properly configured (missing private key)' },
+        { status: 500 }
+      )
+    }
+    
     // Validate session
     const user = await getAuthenticatedUser(request)
     if (!user) {
@@ -20,6 +31,7 @@ export async function POST(request: NextRequest) {
     // Get notification data from request
     const body = await request.json()
     const { recipientIds, notification } = body
+    console.log('[push/send] Sending to recipients:', recipientIds);
 
     if (!recipientIds || !Array.isArray(recipientIds) || recipientIds.length === 0) {
       return NextResponse.json(
@@ -50,12 +62,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (!subscriptions || subscriptions.length === 0) {
+      console.log('[push/send] No active push subscriptions found for recipients');
       return NextResponse.json({
         success: true,
         message: 'No active push subscriptions found',
         sent: 0
       })
     }
+    
+    console.log(`[push/send] Found ${subscriptions.length} subscription(s)`);
 
     // Prepare notification payload
     const payload: PushNotificationPayload = {

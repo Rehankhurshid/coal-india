@@ -5,6 +5,7 @@ import { AppNav } from "@/components/app-nav";
 import { EmployeeRefreshProvider } from "@/lib/hooks/use-employee-refresh";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -70,6 +71,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <ServiceWorkerRegistration />
           <EmployeeRefreshProvider>
             <div className="h-screen bg-background font-sans flex flex-col">
               <AppNav />
