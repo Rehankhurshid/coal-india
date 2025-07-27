@@ -15,6 +15,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { IOSPushDebug } from '@/components/messaging/ios-push-debug';
 
 interface DiagnosticItem {
   name: string;
@@ -363,6 +364,9 @@ export default function PushNotificationsDebugPage() {
           Re-run Diagnostics
         </Button>
       </div>
+
+      {/* iOS-specific Debug */}
+      <IOSPushDebug />
 
       {/* Overall Status */}
       <Card>
