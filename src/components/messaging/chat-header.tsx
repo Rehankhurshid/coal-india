@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Settings } from "lucide-react"
 import { Group } from "@/types/messaging"
 import { RealtimeStatus } from "./realtime-status"
+import { NotificationStatus } from "./notification-status"
 
 interface ChatHeaderProps {
   group: Group
@@ -60,6 +61,7 @@ export function ChatHeader({
       </div>
 
       <div className="flex items-center space-x-2">
+        <NotificationStatus showLabel={false} />
         <Button
           variant="ghost"
           size="icon"

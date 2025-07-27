@@ -352,6 +352,65 @@ export async function POST(
 
     console.log('Message sent successfully:', message.id);
 
+    // Send push notifications to other group members
+    try {
+      // Get all group members except the sender
+      const { data: members } = await supabase
+        .from('messaging_group_members')
+        .select('employee_id')
+        .eq('group_id', groupId)
+        .neq('employee_id', employeeId);
+
+      if (members && members.length > 0) {
+        const recipientIds = members.map(m => m.employee_id);
+        
+        // Get group name for the notification
+        const { data: group } = await supabase
+          .from('messaging_groups')
+          .select('name')
+          .eq('id', groupId)
+          .single();
+
+        // Send push notification via internal API call
+        const notificationPayload = {
+          recipientIds,
+          notification: {
+            title: group?.name || 'New Message',
+            body: `${sender?.name || 'Someone'}: ${message.content.substring(0, 100)}${message.content.length > 100 ? '...' : ''}`,
+            icon: '/icon-192x192.png',
+            badge: '/icon-192x192.png',
+            tag: `group-${groupId}-msg-${message.id}`,
+            url: `/messaging?group=${groupId}`,
+            data: {
+              groupId,
+              messageId: message.id,
+              senderId: employeeId
+            }
+          }
+        };
+
+        // Make internal API call to send push notifications
+        const pushResponse = await fetch(`${request.nextUrl.origin}/api/push/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': request.headers.get('Authorization') || ''
+          },
+          body: JSON.stringify(notificationPayload)
+        });
+
+        if (!pushResponse.ok) {
+          console.error('Failed to send push notifications:', await pushResponse.text());
+        } else {
+          const result = await pushResponse.json();
+          console.log('Push notifications sent:', result);
+        }
+      }
+    } catch (pushError) {
+      // Don't fail the message send if push notifications fail
+      console.error('Error sending push notifications:', pushError);
+    }
+
     return NextResponse.json({ message }, { status: 201 });
 
   } catch (error) {
