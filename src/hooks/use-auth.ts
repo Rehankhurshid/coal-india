@@ -52,9 +52,12 @@ export function useAuth() {
         return
       }
 
+      // Ensure employee object is serializable
+      const serializedEmployee = JSON.parse(JSON.stringify(employee))
+
       setAuthState({
         currentUserId: session.employeeId,
-        employee,
+        employee: serializedEmployee,
         loading: false,
         isAuthenticated: true,
         error: null

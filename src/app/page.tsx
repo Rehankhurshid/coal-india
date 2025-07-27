@@ -354,8 +354,8 @@ export default function Home() {
             {/* Desktop Sidebar */}
             <div className="hidden lg:block w-80 flex-shrink-0">
               <div className="sticky top-4 space-y-4">
-                {/* Quick Messaging Access */}
-                <div className="bg-card rounded-lg shadow-sm border border-border p-4">
+                {/* Quick Messaging Access - Hidden */}
+                <div className="bg-card rounded-lg shadow-sm border border-border p-4 hidden">
                   <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                     <MessageSquare className="h-4 w-4" />
                     Messages

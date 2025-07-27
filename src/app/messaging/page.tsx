@@ -54,7 +54,7 @@ export default function MessagingPage() {
   }
 
   return (
-    <div className="h-full relative">
+    <div className="h-full min-h-[100dvh] md:h-full relative">
       <EnhancedMessagingAppRealData currentUserId={currentUserId} />
       
       {process.env.NODE_ENV === 'development' && (

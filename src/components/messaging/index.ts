@@ -1,0 +1,10 @@
+// Messaging components index
+export { ChatArea } from "./chat-area"
+export { ChatHeader } from "./chat-header"
+export { ChatInput } from "./chat-input"
+export { DesktopSidebar } from "./desktop-sidebar"
+export { GroupList } from "./group-list"
+export { GroupListItem } from "./group-list-item"
+export { SimpleMessageList } from "./simple-message-bubble"
+export { WelcomeScreen } from "./welcome-screen"
+export { MessageEditDialog, MessageDeleteDialog } from "./message-edit-dialog"

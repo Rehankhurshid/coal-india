@@ -39,13 +39,36 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyOTP
       );
     }
 
-    // Development mode: Accept "123456" as valid OTP in development
+    // Development mode: Accept "123456" as valid OTP
     let employeeId: string | null = null;
     
     if (process.env.NODE_ENV === 'development' && otp === '123456') {
-      // In dev mode, extract employee ID from session ID (which should be the employee ID)
-      employeeId = sessionId;
-      console.log(`[verify-otp] Development mode: Using sessionId as employeeId: ${employeeId}`);
+      // In dev mode with bypass OTP, try to get employee ID from OTP verification table first
+      try {
+        employeeId = await sessionManager.verifyOTP(sessionId, otp);
+      } catch (error) {
+        console.log(`[verify-otp] OTP verification failed, trying development fallback`);
+      }
+      
+      // If OTP verification failed, try development fallback
+      if (!employeeId) {
+        // Look up the OTP verification record to get the actual employee ID
+        const supabase = createServerClient();
+        const { data: verification } = await supabase
+          .from('otp_verifications')
+          .select('employee_id')
+          .eq('session_id', sessionId)
+          .single();
+          
+        if (verification) {
+          employeeId = verification.employee_id;
+          console.log(`[verify-otp] Development mode: Found employee_id from verification: ${employeeId}`);
+        } else {
+          // Final fallback: assume sessionId is employee_id (when auth tables fallback to emp_code)
+          employeeId = sessionId;
+          console.log(`[verify-otp] Development mode: Using sessionId as employeeId: ${employeeId}`);
+        }
+      }
     } else {
       // Production mode: Verify OTP normally
       employeeId = await sessionManager.verifyOTP(sessionId, otp);
@@ -63,7 +86,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyOTP
     const supabase = createServerClient();
     console.log(`[verify-otp] Looking up employee with emp_code: ${employeeId}`);
     
-    const { data: employee, error } = await supabase
+    let { data: employee, error } = await supabase
       .from('employees')
       .select('*')
       .eq('emp_code', employeeId)
@@ -71,6 +94,36 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyOTP
       .single();
 
     console.log(`[verify-otp] Employee lookup result:`, { employee, error });
+
+    // Development mode: Create temporary employee if not found
+    if ((error || !employee) && process.env.NODE_ENV === 'development') {
+      console.log(`[verify-otp] Development mode: Creating temporary employee for ${employeeId}`);
+      
+      const tempEmployee = {
+        emp_code: employeeId,
+        name: `Test User ${employeeId}`,
+        designation: 'Developer',
+        department: 'IT',
+        email: `${employeeId.toLowerCase()}@test.com`,
+        phone_1: '+919876543210',
+        is_active: true
+      };
+
+      // Try to insert temp employee, but don't fail if it already exists
+      try {
+        const { data: insertedEmployee } = await supabase
+          .from('employees')
+          .insert(tempEmployee)
+          .select()
+          .single();
+        
+        employee = insertedEmployee;
+      } catch (insertError) {
+        console.log(`[verify-otp] Could not insert temp employee, using temporary data:`, insertError);
+        employee = tempEmployee;
+      }
+      error = null;
+    }
 
     if (error || !employee) {
       await sessionManager.logLoginAttempt(employeeId, clientIP, userAgent, false, 'Employee not found');
@@ -96,11 +149,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyOTP
       refreshToken,
       expiresAt: expiresAt.toISOString(),
       employee: {
+        id: employee.id, // Include the ID field
         emp_code: employee.emp_code,
         name: employee.name,
         designation: employee.designation,
-        dept: employee.dept,
-        email_id: employee.email_id
+        dept: employee.dept || employee.department,
+        email_id: employee.email_id || employee.email,
+        phone_1: employee.phone_1,
+        is_active: employee.is_active
       },
       message: 'Login successful'
     });

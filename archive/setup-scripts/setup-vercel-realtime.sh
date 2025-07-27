@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Setup Real-time Messaging for Vercel Deployment
+# This script provides instructions for enabling real-time features
+
+set -e
+
+echo "🚀 Setting up Real-time Messaging for Vercel..."
+echo ""
+echo "📋 Real-time messaging uses Supabase Broadcast (free tier compatible)"
+echo ""
+echo "⚡ To enable real-time, you need to:"
+echo ""
+echo "1️⃣  Go to your Supabase Dashboard:"
+echo "    https://app.supabase.com/project/YOUR_PROJECT_ID"
+echo ""
+echo "2️⃣  Navigate to: Database → Replication"
+echo ""
+echo "3️⃣  Enable real-time for these tables:"
+echo "    ✓ messaging_messages"
+echo "    ✓ messaging_groups"
+echo "    ✓ messaging_group_members"
+echo ""
+echo "4️⃣  Alternative: Run this SQL in SQL Editor:"
+echo ""
+echo "-- Enable real-time for messaging tables"
+echo "ALTER PUBLICATION supabase_realtime ADD TABLE messaging_messages;"
+echo "ALTER PUBLICATION supabase_realtime ADD TABLE messaging_groups;"
+echo "ALTER PUBLICATION supabase_realtime ADD TABLE messaging_group_members;"
+echo ""
+echo "5️⃣  After enabling, your app will have:"
+echo "    • Instant message delivery"
+echo "    • Live message updates/edits"
+echo "    • Real-time message deletion"
+echo "    • Typing indicators"
+echo "    • Presence tracking"
+echo ""
+echo "📝 Note: Real-time uses Supabase Broadcast which works on the free tier!"
+echo ""
+echo "✅ Once enabled in Supabase, deploy your app with:"
+echo "   ./deploy-realtime-chat.sh"
+echo ""

@@ -53,28 +53,65 @@ export class ClientAuthService {
    */
   static async verifyOTP(sessionId: string, otp: string): Promise<VerifyOTPResponse> {
     try {
+      console.log('[ClientAuth] Calling verify-otp API with:', { sessionId, otp });
+      
       const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, otp }),
       });
 
+      console.log('[ClientAuth] Response status:', response.status);
+      console.log('[ClientAuth] Response ok:', response.ok);
+
+      if (!response.ok) {
+        console.error('[ClientAuth] Response not ok:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url
+        });
+        
+        // Try to get error details
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        
+        return { 
+          success: false, 
+          message: errorMessage 
+        };
+      }
+
       const result = await response.json();
+      console.log('[ClientAuth] Parsed result:', { success: result.success, hasToken: !!result.accessToken });
 
       if (result.success && result.accessToken) {
         // Store session data
-        this.setSession({
+        const sessionData = {
           accessToken: result.accessToken,
           refreshToken: result.refreshToken,
-          employeeId: result.employee.emp_code,
+          employeeId: result.employee.emp_code, // Use emp_code as the key identifier
           expiresAt: new Date(result.expiresAt).getTime(),
+        };
+        
+        console.log('[ClientAuth] Storing session data:', { 
+          employeeId: sessionData.employeeId,
+          hasToken: !!sessionData.accessToken 
         });
+        this.setSession(sessionData);
       }
 
       return result;
     } catch (error) {
-      console.error('OTP verification error:', error);
-      return { success: false, message: 'Network error occurred' };
+      console.error('[ClientAuth] OTP verification error:', error);
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Network error occurred' 
+      };
     }
   }
 

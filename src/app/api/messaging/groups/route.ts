@@ -213,6 +213,10 @@ export async function POST(request: NextRequest) {
       if (membersError) {
         console.error('[api/messaging/groups] POST: Error adding members:', membersError);
         // Don't fail the entire request for this, but log it as a partial success.
+      } else {
+        // Since server-side broadcasting might not work reliably,
+        // we'll rely on clients polling for new groups
+        console.log('[api/messaging/groups] POST: Members added successfully. Clients will poll for updates.');
       }
     }
 

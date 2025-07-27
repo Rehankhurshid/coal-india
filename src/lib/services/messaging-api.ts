@@ -145,10 +145,10 @@ export class MessagingApiService {
   /**
    * Edit a message
    */
-  static async editMessage(messageId: number, newContent: string): Promise<Message> {
+  static async editMessage(groupId: number, messageId: number, newContent: string): Promise<Message> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/messages/${messageId}`, 
+        `${this.baseUrl}/groups/${groupId}/messages/${messageId}`, 
         {
           method: 'PATCH',
           headers: getAuthHeaders(),
@@ -171,10 +171,10 @@ export class MessagingApiService {
   /**
    * Delete a message
    */
-  static async deleteMessage(messageId: number): Promise<void> {
+  static async deleteMessage(groupId: number, messageId: number): Promise<void> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/messages/${messageId}`, 
+        `${this.baseUrl}/groups/${groupId}/messages/${messageId}`, 
         {
           method: 'DELETE',
           headers: getAuthHeaders()

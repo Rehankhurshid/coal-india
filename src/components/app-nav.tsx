@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Users, Search, Settings, Menu, User, LogOut, Camera, MessageSquare } from "lucide-react";
+import { Users, Search, Settings, Menu, User, LogOut, Camera, MessageSquare, Bell, BellOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -18,6 +18,7 @@ import {
 import { ProfileImageUpdate } from "@/components/profile-image-update";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -35,6 +36,7 @@ export function AppNav({ className }: AppNavProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const { employee, logout } = useAuth();
   const [profileImage, setProfileImage] = React.useState<string | null>(null);
+  const { permission, isSubscribed, isLoading, subscribe, unsubscribe, requestPermission } = usePushNotifications();
 
   // Sync local profileImage state with employee data from auth context
   React.useEffect(() => {
@@ -118,6 +120,34 @@ export function AppNav({ className }: AppNavProps) {
                     />
                   </div>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={async () => {
+                      if (!isSubscribed && permission !== 'granted') {
+                        await requestPermission();
+                      }
+                      if (permission === 'granted') {
+                        if (isSubscribed) {
+                          await unsubscribe();
+                        } else {
+                          await subscribe();
+                        }
+                      }
+                    }}
+                    disabled={isLoading}
+                  >
+                    {isSubscribed ? (
+                      <>
+                        <BellOff className="mr-2 h-4 w-4" />
+                        <span>Disable notifications</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bell className="mr-2 h-4 w-4" />
+                        <span>Enable notifications</span>
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600 focus:text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
@@ -162,6 +192,36 @@ export function AppNav({ className }: AppNavProps) {
                     employee={employee} 
                     onImageUpdate={handleImageUpdate}
                   />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={async () => {
+                      if (!isSubscribed && permission !== 'granted') {
+                        await requestPermission();
+                      }
+                      if (permission === 'granted') {
+                        if (isSubscribed) {
+                          await unsubscribe();
+                        } else {
+                          await subscribe();
+                        }
+                      }
+                    }}
+                    disabled={isLoading}
+                  >
+                    {isSubscribed ? (
+                      <>
+                        <BellOff className="mr-2 h-4 w-4" />
+                        Disable notifications
+                      </>
+                    ) : (
+                      <>
+                        <Bell className="mr-2 h-4 w-4" />
+                        Enable notifications
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
 

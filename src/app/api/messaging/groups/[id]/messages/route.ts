@@ -43,34 +43,72 @@ export async function GET(
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const offset = parseInt(url.searchParams.get('offset') || '0');
 
-    // Fetch messages with sender information and reply data
-    const { data: messages, error } = await supabase
-      .from('messaging_messages')
-      .select(`
-        id,
-        group_id,
-        sender_id,
-        content,
-        message_type,
-        status,
-        read_by,
-        created_at,
-        edited_at,
-        deleted_at,
-        reply_to_id,
-        edit_count,
-        employees!messaging_messages_sender_id_fkey(name),
-        reply_message:messaging_messages!reply_to_id(
+    // Fetch messages with sender information using raw SQL for proper joins
+    const { data: messages, error } = await supabase.rpc('get_group_messages_with_names', {
+      p_group_id: groupId,
+      p_limit: limit,
+      p_offset: offset
+    })
+
+    // If RPC doesn't exist, fall back to simple query and populate names manually
+    if (error && error.code === '42883') {
+      const { data: simpleMessages, error: simpleError } = await supabase
+        .from('messaging_messages')
+        .select(`
           id,
-          content,
+          group_id,
           sender_id,
-          employees!messaging_messages_sender_id_fkey(name)
-        )
-      `)
-      .eq('group_id', groupId)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+          content,
+          message_type,
+          status,
+          read_by,
+          created_at,
+          edited_at,
+          deleted_at,
+          reply_to_id,
+          edit_count
+        `)
+        .eq('group_id', groupId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+
+      if (simpleError) {
+        console.error('Error fetching simple messages:', simpleError)
+        return NextResponse.json({ 
+          error: 'Failed to fetch messages',
+          details: simpleError.message
+        }, { status: 500 })
+      }
+
+      // Get sender names separately
+      const senderIds = [...new Set(simpleMessages?.map(m => m.sender_id) || [])]
+      const { data: employees } = await supabase
+        .from('employees')
+        .select('emp_code, name')
+        .in('emp_code', senderIds)
+
+      const employeeMap = new Map(employees?.map(e => [e.emp_code, e.name]) || [])
+
+      // Transform messages with sender names
+      const transformedMessages: Message[] = (simpleMessages || []).map((msg: any) => ({
+        id: msg.id,
+        groupId: msg.group_id,
+        senderId: msg.sender_id,
+        content: msg.content,
+        messageType: msg.message_type,
+        status: msg.status,
+        readBy: msg.read_by || [],
+        createdAt: new Date(msg.created_at),
+        editedAt: msg.edited_at ? new Date(msg.edited_at) : undefined,
+        deletedAt: msg.deleted_at ? new Date(msg.deleted_at) : undefined,
+        senderName: employeeMap.get(msg.sender_id) || 'Unknown User',
+        editCount: msg.edit_count || 0,
+        replyToMessage: undefined // Handle reply messages separately if needed
+      }))
+
+      return NextResponse.json({ messages: transformedMessages.reverse() })
+    };
 
     if (error) {
       console.error('Error fetching messages:', error);
@@ -89,24 +127,24 @@ export async function GET(
       }, { status: 500 });
     }
 
-    // Transform messages with sender names and reply context
+    // Transform messages with sender names (for RPC response)
     const transformedMessages: Message[] = (messages || []).map((msg: any) => ({
       id: msg.id,
-      groupId: msg.group_id,
-      senderId: msg.sender_id,
+      groupId: msg.group_id || msg.groupId,
+      senderId: msg.sender_id || msg.senderId,
       content: msg.content,
-      messageType: msg.message_type,
+      messageType: msg.message_type || msg.messageType,
       status: msg.status,
-      readBy: msg.read_by || [],
-      createdAt: new Date(msg.created_at),
-      editedAt: msg.edited_at ? new Date(msg.edited_at) : undefined,
-      deletedAt: msg.deleted_at ? new Date(msg.deleted_at) : undefined,
-      senderName: (msg.employees as any)?.name || 'Unknown User',
-      editCount: msg.edit_count || 0,
-      replyToMessage: msg.reply_message ? {
-        id: (msg.reply_message as any).id,
-        content: (msg.reply_message as any).content,
-        senderName: (msg.reply_message as any).employees?.name || 'Unknown User'
+      readBy: msg.read_by || msg.readBy || [],
+      createdAt: new Date(msg.created_at || msg.createdAt),
+      editedAt: msg.edited_at || msg.editedAt ? new Date(msg.edited_at || msg.editedAt) : undefined,
+      deletedAt: msg.deleted_at || msg.deletedAt ? new Date(msg.deleted_at || msg.deletedAt) : undefined,
+      senderName: msg.sender_name || msg.senderName || 'Unknown User',
+      editCount: msg.edit_count || msg.editCount || 0,
+      replyToMessage: (msg.reply_to_id && msg.reply_content) ? {
+        id: msg.reply_to_id,
+        content: msg.reply_content,
+        senderName: msg.reply_sender_name || 'Unknown User'
       } : undefined
     }));
 
@@ -249,29 +287,47 @@ export async function POST(
         reply_to_id: body.replyToId || null,
         status: 'sent'
       })
-      .select(`
-        id,
-        group_id,
-        sender_id,
-        content,
-        message_type,
-        status,
-        read_by,
-        created_at,
-        reply_to_id,
-        employees!messaging_messages_sender_id_fkey(name),
-        reply_message:messaging_messages!reply_to_id(
-          id,
-          content,
-          sender_id,
-          employees!messaging_messages_sender_id_fkey(name)
-        )
-      `)
+      .select('*')
       .single();
 
     if (insertError) {
       console.error('Error creating message:', insertError);
       return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+    }
+
+    // Get sender name separately
+    const { data: sender } = await supabase
+      .from('employees')
+      .select('name')
+      .eq('emp_code', employeeId)
+      .single();
+
+    // Get reply message details if this is a reply
+    let replyToMessage = undefined;
+    if (newMessage.reply_to_id) {
+      const { data: replyMsg } = await supabase
+        .from('messaging_messages')
+        .select(`
+          id,
+          content,
+          sender_id
+        `)
+        .eq('id', newMessage.reply_to_id)
+        .single();
+
+      if (replyMsg) {
+        const { data: replySender } = await supabase
+          .from('employees')
+          .select('name')
+          .eq('emp_code', replyMsg.sender_id)
+          .single();
+
+        replyToMessage = {
+          id: replyMsg.id,
+          content: replyMsg.content,
+          senderName: replySender?.name || 'Unknown User'
+        };
+      }
     }
 
     // Update group's updated_at timestamp
@@ -290,12 +346,8 @@ export async function POST(
       status: newMessage.status,
       readBy: newMessage.read_by || [],
       createdAt: new Date(newMessage.created_at),
-      senderName: (newMessage.employees as any)?.name || 'Unknown User',
-      replyToMessage: newMessage.reply_message ? {
-        id: (newMessage.reply_message as any).id,
-        content: (newMessage.reply_message as any).content,
-        senderName: (newMessage.reply_message as any).employees?.name || 'Unknown User'
-      } : undefined
+      senderName: sender?.name || 'Unknown User',
+      replyToMessage
     };
 
     console.log('Message sent successfully:', message.id);

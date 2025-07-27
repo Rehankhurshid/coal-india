@@ -15,6 +15,16 @@ import { Message } from '@/types/messaging'
 import { cn } from '@/lib/utils'
 import { Edit, X, Clock } from 'lucide-react'
 
+// Utility function to safely format date
+const formatTime = (date: Date | string | number): string => {
+  try {
+    return new Date(date).toLocaleTimeString()
+  } catch (error) {
+    console.warn('Invalid date format:', date)
+    return 'Invalid time'
+  }
+}
+
 interface MessageEditDialogProps {
   message: Message | null
   open: boolean
@@ -87,7 +97,7 @@ export function MessageEditDialog({
                 <span className="text-sm font-medium">{message.senderName}</span>
                 <Badge variant="secondary" className="text-xs">
                   <Clock className="h-3 w-3 mr-1" />
-                  {message.createdAt.toLocaleTimeString()}
+                  {formatTime(message.createdAt)}
                 </Badge>
                 {message.editCount && message.editCount > 0 && (
                   <Badge variant="outline" className="text-xs">
@@ -237,7 +247,7 @@ export function MessageDeleteDialog({
                 <span className="text-sm font-medium">{message.senderName}</span>
                 <Badge variant="secondary" className="text-xs">
                   <Clock className="h-3 w-3 mr-1" />
-                  {message.createdAt.toLocaleTimeString()}
+                  {formatTime(message.createdAt)}
                 </Badge>
               </div>
               <div className="text-sm text-muted-foreground">

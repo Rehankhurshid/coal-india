@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createServerClient } from '@/lib/supabase-server'
+import { getAuthenticatedUser } from '@/lib/auth/server-auth'
 
 // PATCH /api/messaging/groups/[id]/messages/[messageId] - Edit message
 export async function PATCH(
@@ -7,20 +8,28 @@ export async function PATCH(
   context: { params: Promise<{ id: string; messageId: string }> }
 ) {
   try {
-    const { content, userId } = await req.json()
+    // Get authenticated user
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const supabase = createServerClient();
+    const { content } = await req.json()
     const params = await context.params
     const { id: groupId, messageId } = params
+    const userId = user.employeeId;
 
-    if (!content || !userId) {
+    if (!content) {
       return NextResponse.json(
-        { error: 'Missing required fields: content, userId' },
+        { error: 'Missing required field: content' },
         { status: 400 }
       )
     }
 
     // Verify user is the sender of the message
     const { data: message, error: messageError } = await supabase
-      .from('messages')
+      .from('messaging_messages')
       .select('sender_id, content, edit_count')
       .eq('id', messageId)
       .eq('group_id', groupId)
@@ -50,7 +59,7 @@ export async function PATCH(
 
     // Update the message
     const { data: updatedMessage, error: updateError } = await supabase
-      .from('messages')
+      .from('messaging_messages')
       .update({
         content: content.trim(),
         edited_at: new Date().toISOString(),
@@ -83,7 +92,7 @@ export async function PATCH(
     const { data: senderData } = await supabase
       .from('employees')
       .select('name')
-      .eq('id', userId)
+      .eq('emp_code', userId)
       .single()
 
     return NextResponse.json({
@@ -118,20 +127,20 @@ export async function DELETE(
   context: { params: Promise<{ id: string; messageId: string }> }
 ) {
   try {
-    const { userId } = await req.json()
+    // Get authenticated user
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const supabase = createServerClient();
     const params = await context.params
     const { id: groupId, messageId } = params
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing required field: userId' },
-        { status: 400 }
-      )
-    }
+    const userId = user.employeeId;
 
     // Verify user is the sender of the message
     const { data: message, error: messageError } = await supabase
-      .from('messages')
+      .from('messaging_messages')
       .select('sender_id, deleted_at')
       .eq('id', messageId)
       .eq('group_id', groupId)
@@ -160,7 +169,7 @@ export async function DELETE(
 
     // Soft delete the message (keep for history but mark as deleted)
     const { data: deletedMessage, error: deleteError } = await supabase
-      .from('messages')
+      .from('messaging_messages')
       .update({
         deleted_at: new Date().toISOString()
       })

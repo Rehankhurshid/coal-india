@@ -239,7 +239,7 @@ export class SupabaseMessagingService {
       .eq('emp_code', senderId)
       .single()
 
-    return {
+    const newMessage: Message = {
       id: message.id,
       groupId: message.group_id,
       senderId: message.sender_id,
@@ -250,6 +250,11 @@ export class SupabaseMessagingService {
       createdAt: new Date(message.created_at),
       senderName: sender?.name || senderId
     }
+
+    // Broadcast the new message to all other users in the group
+    await this.broadcastNewMessage(groupId, newMessage)
+
+    return newMessage
   }
 
   /**
@@ -295,7 +300,7 @@ export class SupabaseMessagingService {
       .eq('emp_code', userId)
       .single()
 
-    return {
+    const editedMessage: Message = {
       id: updatedMessage.id,
       groupId: updatedMessage.group_id,
       senderId: updatedMessage.sender_id,
@@ -307,6 +312,11 @@ export class SupabaseMessagingService {
       editedAt: new Date(updatedMessage.edited_at),
       senderName: sender?.name || userId
     }
+
+    // Broadcast the updated message to all other users in the group
+    await this.broadcastMessageUpdate(originalMessage.group_id, editedMessage)
+
+    return editedMessage
   }
 
   /**
@@ -316,7 +326,7 @@ export class SupabaseMessagingService {
     // Get the original message
     const { data: originalMessage, error: fetchError } = await supabase
       .from('messaging_messages')
-      .select('sender_id')
+      .select('sender_id, group_id')
       .eq('id', messageId)
       .single()
 
@@ -339,10 +349,13 @@ export class SupabaseMessagingService {
       console.error('Error deleting message:', deleteError)
       throw deleteError
     }
+
+    // Broadcast the message deletion to all other users in the group
+    await this.broadcastMessageDelete(originalMessage.group_id, messageId)
   }
 
   /**
-   * Subscribe to real-time updates for a group
+   * Subscribe to real-time updates for a group using Broadcast (works on free tier!)
    */
   static subscribeToGroup(
     groupId: number,
@@ -354,78 +367,74 @@ export class SupabaseMessagingService {
   ) {
     const channel = supabase.channel(`group-${groupId}`)
 
-    // Subscribe to new messages
-    if (callbacks.onNewMessage) {
-      channel.on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messaging_messages',
-          filter: `group_id=eq.${groupId}`
-        },
-        async (payload) => {
-          // Get sender name
-          const { data: sender } = await supabase
-            .from('employees')
-            .select('name')
-            .eq('emp_code', payload.new.sender_id)
-            .single()
-
-          const message: Message = {
-            id: payload.new.id,
-            groupId: payload.new.group_id,
-            senderId: payload.new.sender_id,
-            content: payload.new.content,
-            messageType: payload.new.message_type as 'text' | 'image' | 'file',
-            status: 'sent',
-            readBy: [],
-            createdAt: new Date(payload.new.created_at),
-            senderName: sender?.name || payload.new.sender_id
-          }
-          callbacks.onNewMessage?.(message)
-        }
-      )
-    }
-
-    // Subscribe to message updates and deletes
+    // Subscribe to broadcast messages
     channel.on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'messaging_messages',
-        filter: `group_id=eq.${groupId}`
-      },
+      'broadcast',
+      { event: 'new-message' },
       async (payload) => {
-        if (payload.new.deleted_at) {
-          callbacks.onMessageDelete?.(payload.new.id)
-        } else {
-          // Get sender name
-          const { data: sender } = await supabase
-            .from('employees')
-            .select('name')
-            .eq('emp_code', payload.new.sender_id)
-            .single()
+        if (callbacks.onNewMessage && payload.payload.message) {
+          callbacks.onNewMessage(payload.payload.message)
+        }
+      }
+    )
 
-          const message: Message = {
-            id: payload.new.id,
-            groupId: payload.new.group_id,
-            senderId: payload.new.sender_id,
-            content: payload.new.content,
-            messageType: payload.new.message_type as 'text' | 'image' | 'file',
-            status: 'sent',
-            readBy: [],
-            createdAt: new Date(payload.new.created_at),
-            editedAt: payload.new.edited_at ? new Date(payload.new.edited_at) : undefined,
-            senderName: sender?.name || payload.new.sender_id
-          }
-          callbacks.onMessageUpdate?.(message)
+    channel.on(
+      'broadcast',
+      { event: 'update-message' },
+      async (payload) => {
+        if (callbacks.onMessageUpdate && payload.payload.message) {
+          callbacks.onMessageUpdate(payload.payload.message)
+        }
+      }
+    )
+
+    channel.on(
+      'broadcast',
+      { event: 'delete-message' },
+      async (payload) => {
+        if (callbacks.onMessageDelete && payload.payload.messageId) {
+          callbacks.onMessageDelete(payload.payload.messageId)
         }
       }
     )
 
     return channel.subscribe()
+  }
+
+  /**
+   * Broadcast a new message to the group channel
+   */
+  static async broadcastNewMessage(groupId: number, message: Message) {
+    const channel = supabase.channel(`group-${groupId}`)
+    await channel.send({
+      type: 'broadcast',
+      event: 'new-message',
+      payload: { message }
+    })
+  }
+
+  /**
+   * Broadcast a message update to the group channel
+   */
+  static async broadcastMessageUpdate(groupId: number, message: Message) {
+    const channel = supabase.channel(`group-${groupId}`)
+    await channel.send({
+      type: 'broadcast',
+      event: 'update-message',
+      payload: { message }
+    })
+  }
+
+  /**
+   * Broadcast a message deletion to the group channel
+   */
+  static async broadcastMessageDelete(groupId: number, messageId: number) {
+    const channel = supabase.channel(`group-${groupId}`)
+    await channel.send({
+      type: 'broadcast',
+      event: 'delete-message',
+      payload: { messageId }
+    })
   }
 
   /**

@@ -4,15 +4,10 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { ReactionPicker } from './reaction-picker'
 import { cn } from '@/lib/utils'
 import { 
   Send, 
-  Paperclip, 
-  Smile, 
-  X,
-  AtSign,
-  Hash
+  X
 } from 'lucide-react'
 import { Message } from '@/types/messaging'
 
@@ -39,7 +34,6 @@ export function ChatInput({
 }: ChatInputProps) {
   const [message, setMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -53,10 +47,14 @@ export function ChatInput({
 
   // Handle typing indicator
   useEffect(() => {
+    console.log(`🎯 ChatInput typing effect: message="${message}", isTyping=${isTyping}`)
+    
     if (message.trim() && !isTyping) {
+      console.log('🟢 Starting typing indicator')
       setIsTyping(true)
       onTyping?.(true)
     } else if (!message.trim() && isTyping) {
+      console.log('🔴 Stopping typing indicator (empty message)')
       setIsTyping(false)
       onTyping?.(false)
     }
@@ -69,9 +67,10 @@ export function ChatInput({
     // Set new timeout to stop typing indicator
     if (message.trim()) {
       typingTimeoutRef.current = setTimeout(() => {
+        console.log('⏱️ Timeout reached - stopping typing indicator')
         setIsTyping(false)
         onTyping?.(false)
-      }, 3000)
+      }, 10000) // Match the timeout in the hook
     }
 
     return () => {
@@ -125,37 +124,6 @@ export function ChatInput({
     }
   }
 
-  const handleEmojiSelect = (emoji: string) => {
-    setMessage(prev => prev + emoji)
-    setShowEmojiPicker(false)
-    textareaRef.current?.focus()
-  }
-
-  const insertAtCursor = (text: string) => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const newMessage = message.slice(0, start) + text + message.slice(end)
-    
-    setMessage(newMessage)
-    
-    // Restore cursor position
-    setTimeout(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + text.length
-      textarea.focus()
-    }, 0)
-  }
-
-  const handleMentionClick = () => {
-    insertAtCursor('@')
-  }
-
-  const handleChannelClick = () => {
-    insertAtCursor('#')
-  }
-
   return (
     <div className={cn("border-t bg-background", className)}>
       {/* Reply Banner */}
@@ -187,36 +155,6 @@ export function ChatInput({
 
       {/* Input Area */}
       <div className="flex items-end gap-2 p-4">
-        {/* Quick Actions */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={handleMentionClick}
-            title="Mention someone"
-          >
-            <AtSign className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={handleChannelClick}
-            title="Reference channel"
-          >
-            <Hash className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            title="Attach file"
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-        </div>
-
         {/* Text Input */}
         <div className="flex-1 relative">
           <Textarea
@@ -244,21 +182,6 @@ export function ChatInput({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1">
-          {/* Emoji Picker */}
-          <ReactionPicker
-            onReactionSelect={handleEmojiSelect}
-            trigger={
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                title="Add emoji"
-              >
-                <Smile className="h-4 w-4" />
-              </Button>
-            }
-          />
-
           {/* Send Button */}
           <Button
             onClick={handleSend}
