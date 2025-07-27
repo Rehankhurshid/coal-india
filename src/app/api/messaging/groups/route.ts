@@ -1,29 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase-server';
+import { createServerClient } from '@/lib/supabase-server';
 import { Group, CreateGroupRequest } from '@/types/messaging';
+import { getAuthenticatedUser, setUserContextForRLS } from '@/lib/auth/server-auth';
 
 // GET /api/messaging/groups - Fetch user's groups with real Supabase data
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const searchParams = request.nextUrl.searchParams;
+    // Get authenticated user
+    const authenticatedUser = await getAuthenticatedUser(request);
     
-    // Get current user ID from query params or session
-    // For development, allowing override via query param
-    const currentUserId = searchParams.get('userId') || '90145293'; // Default to Nayyar Khurshid
+    if (!authenticatedUser) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const currentUserId = authenticatedUser.employeeId;
+    console.log('Fetching groups for authenticated user:', currentUserId);
+
+    const supabase = createServerClient();
     
-    console.log('Fetching groups for user:', currentUserId);
+    // Set user context for RLS
+    await setUserContextForRLS(currentUserId);
 
     // Use raw SQL query to debug the issue
     const { data: rawData, error: sqlError } = await supabase
       .rpc('get_user_groups', { user_id: currentUserId });
 
-    if (sqlError) {
-      console.log('SQL function not found, using direct query approach');
+    if (sqlError && !sqlError.message.includes('function get_user_groups(user_id => character varying) does not exist')) {
+      console.error('Error fetching user groups with SQL function:', sqlError);
+    } else if (rawData) {
+      console.log('Using SQL function result:', rawData.length);
+      return NextResponse.json({
+        success: true,
+        groups: rawData,
+      });
+    }
+
+    console.log('SQL function not found or failed, using direct query approach');
       
       // Fallback to direct query
       const { data: userGroups, error: groupsError } = await supabase
-        .from('group_members')
+        .from('messaging_group_members')
         .select('group_id, role, joined_at')
         .eq('employee_id', currentUserId);
 
@@ -31,8 +47,6 @@ export async function GET(request: NextRequest) {
         console.error('Error fetching user group memberships:', groupsError);
         return NextResponse.json({ error: 'Failed to fetch group memberships' }, { status: 500 });
       }
-
-      console.log('Found group memberships:', userGroups?.length || 0);
 
       if (!userGroups || userGroups.length === 0) {
         return NextResponse.json({
@@ -44,7 +58,7 @@ export async function GET(request: NextRequest) {
       // Get group details for each membership
       const groupIds = userGroups.map(membership => membership.group_id);
       const { data: groups, error: groupDetailsError } = await supabase
-        .from('groups')
+        .from('messaging_groups')
         .select('*')
         .in('id', groupIds);
 
@@ -53,8 +67,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to fetch group details' }, { status: 500 });
       }
 
-      console.log('Found groups:', groups?.length || 0);
-
       // Enrich groups with additional data
       const enrichedGroups = await Promise.all(
         (groups || []).map(async (group) => {
@@ -62,13 +74,13 @@ export async function GET(request: NextRequest) {
           
           // Get member count
           const { count: memberCount } = await supabase
-            .from('group_members')
+            .from('messaging_group_members')
             .select('*', { count: 'exact', head: true })
             .eq('group_id', group.id);
 
           // Get last message
           const { data: lastMessage } = await supabase
-            .from('messages')
+            .from('messaging_messages')
             .select('content, created_at, sender_id')
             .eq('group_id', group.id)
             .is('deleted_at', null)
@@ -78,14 +90,14 @@ export async function GET(request: NextRequest) {
 
           // Get unread count for current user
           const { count: totalMessages } = await supabase
-            .from('messages')
+            .from('messaging_messages')
             .select('*', { count: 'exact', head: true })
             .eq('group_id', group.id)
             .is('deleted_at', null);
 
           // Count messages read by current user
           const { count: readMessages } = await supabase
-            .from('messages')
+            .from('messaging_messages')
             .select('*', { count: 'exact', head: true })
             .eq('group_id', group.id)
             .is('deleted_at', null)
@@ -109,21 +121,10 @@ export async function GET(request: NextRequest) {
         })
       );
 
-      console.log('Returning enriched groups:', enrichedGroups.length);
-
       return NextResponse.json({
         success: true,
         groups: enrichedGroups
       });
-    }
-
-    // If SQL function exists, use that result
-    console.log('Using SQL function result:', rawData?.length || 0);
-    return NextResponse.json({
-      success: true,
-      groups: rawData || []
-    });
-
   } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -133,48 +134,66 @@ export async function GET(request: NextRequest) {
 // POST /api/messaging/groups - Create new group
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const searchParams = request.nextUrl.searchParams;
-    const currentUserId = searchParams.get('userId') || '90145293';
+    console.log('[api/messaging/groups] POST: Received request to create group.');
+    // Get authenticated user
+    const authenticatedUser = await getAuthenticatedUser(request);
     
-    const body = await request.json();
-    const { name, description, createdBy, memberIds = [] } = body;
-
-    if (!name || !createdBy) {
-      return NextResponse.json({ error: 'Name and createdBy are required' }, { status: 400 });
+    if (!authenticatedUser) {
+      console.error('[api/messaging/groups] POST: Authentication failed. User is not authenticated.');
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    console.log('Creating group:', { name, description, createdBy, memberIds });
+    const currentUserId = authenticatedUser.employeeId;
+    console.log(`[api/messaging/groups] POST: Authenticated as user ${currentUserId}.`);
+    const supabase = createServerClient();
+    
+    // Set user context for RLS
+    await setUserContextForRLS(currentUserId);
+    
+    const body = await request.json();
+    const { name, description, memberIds = [] } = body;
+    console.log('[api/messaging/groups] POST: Request body parsed:', { name, description, memberIds });
+
+    if (!name) {
+      console.warn('[api/messaging/groups] POST: Validation failed - Name is required.');
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    }
+
+    console.log('[api/messaging/groups] POST: Creating group with details:', { name, description, createdBy: currentUserId, memberIds });
 
     // Create the group
     const { data: newGroup, error: groupError } = await supabase
-      .from('groups')
+      .from('messaging_groups')
       .insert({
         name,
         description,
-        created_by: createdBy
+        created_by: currentUserId
       })
       .select()
       .single();
 
     if (groupError) {
-      console.error('Error creating group:', groupError);
+      console.error('[api/messaging/groups] POST: Error creating group in Supabase:', groupError);
       return NextResponse.json({ error: 'Failed to create group' }, { status: 500 });
     }
 
-    console.log('Created group:', newGroup);
+    console.log('[api/messaging/groups] POST: Group created successfully:', newGroup);
 
     // Add creator as admin
+    console.log(`[api/messaging/groups] POST: Adding creator ${currentUserId} as admin to group ${newGroup.id}.`);
     const { error: memberError } = await supabase
-      .from('group_members')
+      .from('messaging_group_members')
       .insert({
         group_id: newGroup.id,
-        employee_id: createdBy,
+        employee_id: currentUserId,
         role: 'admin'
       });
 
     if (memberError) {
-      console.error('Error adding creator as admin:', memberError);
+      console.error(`[api/messaging/groups] POST: Error adding creator as admin to group ${newGroup.id}:`, memberError);
+      // Attempt to roll back group creation
+      await supabase.from('messaging_groups').delete().eq('id', newGroup.id);
+      console.log(`[api/messaging/groups] POST: Rolled back group creation for id ${newGroup.id}.`);
       return NextResponse.json({ error: 'Failed to add creator as admin' }, { status: 500 });
     }
 
@@ -185,17 +204,19 @@ export async function POST(request: NextRequest) {
         employee_id: employeeId,
         role: 'member'
       }));
+      console.log('[api/messaging/groups] POST: Adding other members:', memberInserts);
 
       const { error: membersError } = await supabase
-        .from('group_members')
+        .from('messaging_group_members')
         .insert(memberInserts);
 
       if (membersError) {
-        console.error('Error adding members:', membersError);
-        // Don't fail the entire request for this
+        console.error('[api/messaging/groups] POST: Error adding members:', membersError);
+        // Don't fail the entire request for this, but log it as a partial success.
       }
     }
 
+    console.log(`[api/messaging/groups] POST: Successfully created group and added members for group id ${newGroup.id}.`);
     return NextResponse.json({
       success: true,
       group: {
@@ -210,7 +231,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('[api/messaging/groups] POST: Unhandled error in create group endpoint:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

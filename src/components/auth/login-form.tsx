@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, User } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 const loginSchema = z.object({
   employeeId: z.string()
@@ -39,54 +38,23 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     setError(null);
 
     try {
-      // Find employee in Supabase
-      const { data: employee, error: employeeError } = await supabase
-        .from('employees')
-        .select('emp_code, name, phone_1, phone_2')
-        .eq('emp_code', data.employeeId.toUpperCase())
-        .single();
+      // Call the login API endpoint
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId: data.employeeId }),
+      });
 
-      if (employeeError || !employee) {
-        throw new Error('Employee not found. Please check your Employee ID.');
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Login failed');
       }
 
-      // Validate phone number exists
-      const phoneNumber = employee.phone_1 || employee.phone_2;
-      if (!phoneNumber) {
-        throw new Error('No phone number found for this employee. Please contact HR.');
-      }
-
-      // Validate Indian phone number format
-      const phoneRegex = /^[6-9]\d{9}$/;
-      const cleanPhone = phoneNumber.replace(/\D/g, '').slice(-10);
+      // Store the session ID and phone number for the OTP form
+      const { sessionId, phoneNumber } = result;
       
-      if (!phoneRegex.test(cleanPhone)) {
-        throw new Error('Invalid phone number format. Please contact HR.');
-      }
-
-      // Generate OTP and session ID
-      const sessionId = generateSessionId();
-      const otp = generateOTP();
-
-      // In development, we'll simulate the OTP storage
-      // In production, this would be stored in a secure backend
-      localStorage.setItem(`otp_${sessionId}`, JSON.stringify({
-        otp,
-        employeeId: employee.emp_code,
-        phoneNumber: phoneNumber,
-        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
-        verified: false
-      }));
-
-      // In development, show OTP in console
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`OTP for ${employee.emp_code}: ${otp}`);
-      }
-
-      // Simulate SMS sending (in production, integrate with SMS service)
-      await simulateSMSSending(phoneNumber, otp);
-
-      onSuccess(sessionId, employee.emp_code, phoneNumber);
+      onSuccess(sessionId, data.employeeId, phoneNumber);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login');
@@ -146,32 +114,4 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       </Button>
     </form>
   );
-}
-
-// Utility functions
-function generateSessionId(): string {
-  return 'sess_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
-}
-
-function generateOTP(): string {
-  if (process.env.NODE_ENV === 'development') {
-    return '123456'; // Fixed OTP for development
-  }
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-async function simulateSMSSending(phoneNumber: string, otp: string): Promise<void> {
-  // Simulate SMS sending delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`SMS sent to ${phoneNumber}: Your SECL Directory OTP is ${otp}. Valid for 5 minutes.`);
-  }
-  
-  // In production, integrate with SMS service like Twilio:
-  // await twilioClient.messages.create({
-  //   body: `Your SECL Directory OTP is ${otp}. Valid for 5 minutes.`,
-  //   from: process.env.TWILIO_PHONE_NUMBER,
-  //   to: `+91${phoneNumber}`
-  // });
 }

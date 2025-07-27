@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createServerClient } from '@/lib/supabase-server';
 import { Message, SendMessageRequest } from '@/types/messaging';
+import { getAuthenticatedUser } from '@/lib/auth/server-auth';
 
 // GET /api/messaging/groups/[id]/messages - Fetch messages for a group
 export async function GET(
@@ -8,7 +9,13 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient();
+    // Get authenticated user
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const supabase = createServerClient();
     const params = await context.params;
     const groupId = parseInt(params.id);
     
@@ -16,15 +23,12 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid group ID' }, { status: 400 });
     }
 
-    // Get current user ID from query params for development
-    const searchParams = request.nextUrl.searchParams;
-    const employeeId = searchParams.get('userId') || '90145293'; // Default to Nayyar Khurshid
-
+    const employeeId = user.employeeId;
     console.log('Fetching messages for group:', groupId, 'user:', employeeId);
 
-    // Verify user is a member of the group
+    // Verify user is a member of the group using the correct table name
     const { data: membership } = await supabase
-      .from('group_members')
+      .from('messaging_group_members')
       .select('id')
       .eq('group_id', groupId)
       .eq('employee_id', employeeId)
@@ -41,7 +45,7 @@ export async function GET(
 
     // Fetch messages with sender information and reply data
     const { data: messages, error } = await supabase
-      .from('messages')
+      .from('messaging_messages')
       .select(`
         id,
         group_id,
@@ -55,12 +59,12 @@ export async function GET(
         deleted_at,
         reply_to_id,
         edit_count,
-        employees!messages_sender_id_fkey(name),
-        reply_message:messages!reply_to_id(
+        employees!messaging_messages_sender_id_fkey(name),
+        reply_message:messaging_messages!reply_to_id(
           id,
           content,
           sender_id,
-          employees!messages_sender_id_fkey(name)
+          employees!messaging_messages_sender_id_fkey(name)
         )
       `)
       .eq('group_id', groupId)
@@ -70,7 +74,19 @@ export async function GET(
 
     if (error) {
       console.error('Error fetching messages:', error);
-      return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        groupId,
+        employeeId
+      });
+      return NextResponse.json({ 
+        error: 'Failed to fetch messages',
+        details: error.message,
+        hint: error.hint
+      }, { status: 500 });
     }
 
     // Transform messages with sender names and reply context
@@ -108,7 +124,13 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient();
+    // Get authenticated user
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const supabase = createServerClient();
     const params = await context.params;
     const groupId = parseInt(params.id);
     
@@ -116,13 +138,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid group ID' }, { status: 400 });
     }
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const employeeId = session.user.id;
+    const employeeId = user.employeeId;
     const { messageIds } = await request.json();
 
     if (!messageIds || !Array.isArray(messageIds)) {
@@ -131,7 +147,7 @@ export async function PATCH(
 
     // Verify user is a member of the group
     const { data: membership } = await supabase
-      .from('group_members')
+      .from('messaging_group_members')
       .select('id')
       .eq('group_id', groupId)
       .eq('employee_id', employeeId)
@@ -146,7 +162,7 @@ export async function PATCH(
     for (const messageId of messageIds) {
       // First get the current read_by array
       const { data: currentMessage } = await supabase
-        .from('messages')
+        .from('messaging_messages')
         .select('read_by')
         .eq('id', messageId)
         .eq('group_id', groupId)
@@ -158,7 +174,7 @@ export async function PATCH(
           readBy.push(employeeId);
           updates.push(
             supabase
-              .from('messages')
+              .from('messaging_messages')
               .update({ read_by: readBy })
               .eq('id', messageId)
           );
@@ -187,7 +203,13 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient();
+    // Get authenticated user
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const supabase = createServerClient();
     const params = await context.params;
     const groupId = parseInt(params.id);
     
@@ -195,10 +217,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid group ID' }, { status: 400 });
     }
 
-    // Get current user ID from query params for development
-    const searchParams = request.nextUrl.searchParams;
-    const employeeId = searchParams.get('userId') || '90145293'; // Default to Nayyar Khurshid
-    
+    const employeeId = user.employeeId;
     const body: SendMessageRequest = await request.json();
 
     if (!body.content?.trim()) {
@@ -209,7 +228,7 @@ export async function POST(
 
     // Verify user is a member of the group
     const { data: membership } = await supabase
-      .from('group_members')
+      .from('messaging_group_members')
       .select('id')
       .eq('group_id', groupId)
       .eq('employee_id', employeeId)
@@ -221,7 +240,7 @@ export async function POST(
 
     // Insert the new message
     const { data: newMessage, error: insertError } = await supabase
-      .from('messages')
+      .from('messaging_messages')
       .insert({
         group_id: groupId,
         sender_id: employeeId,
@@ -240,12 +259,12 @@ export async function POST(
         read_by,
         created_at,
         reply_to_id,
-        employees!messages_sender_id_fkey(name),
-        reply_message:messages!reply_to_id(
+        employees!messaging_messages_sender_id_fkey(name),
+        reply_message:messaging_messages!reply_to_id(
           id,
           content,
           sender_id,
-          employees!messages_sender_id_fkey(name)
+          employees!messaging_messages_sender_id_fkey(name)
         )
       `)
       .single();
@@ -257,7 +276,7 @@ export async function POST(
 
     // Update group's updated_at timestamp
     await supabase
-      .from('groups')
+      .from('messaging_groups')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', groupId);
 

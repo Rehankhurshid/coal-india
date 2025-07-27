@@ -23,7 +23,7 @@ import { ChatInput } from "./messaging/chat-input"
 import { MessageEditDialog, MessageDeleteDialog } from "./messaging/message-edit-dialog"
 import { Message, Group } from "@/types/messaging"
 import { useMessaging } from "@/hooks/use-messaging"
-import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuth } from '@/hooks/use-auth'
 
 interface SidebarContentProps {
   isOnline: boolean;
@@ -150,10 +150,11 @@ const SidebarContent = React.memo(({
 
 SidebarContent.displayName = "SidebarContent";
 
-export function EnhancedMessagingAppRealData() {
-  const { employee } = useAuth()
-  const currentUserId = employee?.emp_code || '90145293'
-  
+interface EnhancedMessagingAppRealDataProps {
+  currentUserId: string;
+}
+
+export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagingAppRealDataProps) {
   const [showChat, setShowChat] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchInput, setSearchInput] = useState("")
@@ -606,7 +607,9 @@ export function EnhancedMessagingAppRealData() {
               name: currentGroup.name,
               description: currentGroup.description || '',
               members: [],
-              createdAt: currentGroup.createdAt.getTime(),
+              createdAt: currentGroup.createdAt instanceof Date 
+                ? currentGroup.createdAt.getTime() 
+                : new Date(currentGroup.createdAt).getTime(),
               isAdmin: true
             }}
             onUpdateGroup={(updatedGroup) => {

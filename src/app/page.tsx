@@ -8,7 +8,7 @@ import { EmployeeList } from "@/components/employee-list";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Button } from "@/components/ui/button";
 import { SlidersHorizontal, X, LogOut, Grid3X3, List, MessageSquare } from "lucide-react";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useEmployeeRefresh } from "@/lib/hooks/use-employee-refresh";
 import Link from "next/link";
 

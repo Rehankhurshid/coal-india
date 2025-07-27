@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Camera, Upload, User, Check } from "lucide-react";
 import { Employee } from "@/lib/supabase";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useEmployeeRefresh } from "@/lib/hooks/use-employee-refresh";
 import { uploadEmployeeImage, updateEmployeeProfileImage } from "@/lib/storage";
 
@@ -32,7 +32,7 @@ export function ProfileImageUpdate({ employee, onImageUpdate }: ProfileImageUpda
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const { refreshSession } = useAuth();
+  const { refreshAuth } = useAuth();
   const { refreshEmployees } = useEmployeeRefresh();
 
   // Debug render
@@ -111,7 +111,7 @@ export function ProfileImageUpdate({ employee, onImageUpdate }: ProfileImageUpda
       onImageUpdate?.(imageUrl);
       
       // Refresh the auth session to get updated employee data
-      refreshSession();
+      refreshAuth();
       
       // Refresh the employee list to show updated profile image
       refreshEmployees();

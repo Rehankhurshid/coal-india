@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -384,6 +385,9 @@ export function EditGroupPopup({ isOpen, onClose, group, onUpdateGroup }: EditGr
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="p-0 w-full h-[100dvh] max-w-none max-h-[100dvh] rounded-none border-0 m-0 inset-0 !top-0 !left-0 !translate-x-0 !translate-y-0">
+          <VisuallyHidden>
+            <DialogTitle>Group Settings</DialogTitle>
+          </VisuallyHidden>
           <div className="flex flex-col h-full w-full overflow-hidden bg-background">
             {renderHeader()}
             {renderCurrentView()}

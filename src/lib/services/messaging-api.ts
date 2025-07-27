@@ -1,4 +1,5 @@
 import { Group, Message, CreateGroupRequest, SendMessageRequest } from '@/types/messaging'
+import { getAuthHeaders } from '@/lib/auth/client-auth'
 
 export class MessagingApiService {
   private static baseUrl = '/api/messaging'
@@ -6,9 +7,18 @@ export class MessagingApiService {
   /**
    * Get all groups for a user
    */
-  static async getUserGroups(userId: string): Promise<Group[]> {
+  static async getUserGroups(): Promise<Group[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/groups?userId=${userId}`)
+      const response = await fetch(`${this.baseUrl}/groups`, {
+        headers: getAuthHeaders()
+      })
+
+      // Handle unauthorized gracefully
+      if (response.status === 401) {
+        console.warn('Unauthorized fetching groups, returning empty list');
+        return [];
+      }
+
       if (!response.ok) {
         throw new Error(`Failed to fetch groups: ${response.statusText}`)
       }
@@ -23,23 +33,22 @@ export class MessagingApiService {
   /**
    * Create a new group
    */
-  static async createGroup(creatorId: string, groupData: CreateGroupRequest): Promise<Group> {
+  static async createGroup(groupData: CreateGroupRequest): Promise<Group | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/groups?userId=${creatorId}`, {
+      const response = await fetch(`${this.baseUrl}/groups`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: groupData.name,
           description: groupData.description,
-          createdBy: creatorId,
           memberIds: groupData.memberIds
         })
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to create group: ${response.statusText}`)
+        // Let the actual server error message propagate
+        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(errorData.error || `Failed to create group: ${response.statusText}`);
       }
 
       const data = await response.json()
@@ -55,13 +64,15 @@ export class MessagingApiService {
    */
   static async getGroupMessages(
     groupId: number, 
-    userId: string, 
     limit = 50, 
     offset = 0
   ): Promise<Message[]> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/groups/${groupId}/messages?userId=${userId}&limit=${limit}&offset=${offset}`
+        `${this.baseUrl}/groups/${groupId}/messages?limit=${limit}&offset=${offset}`,
+        {
+          headers: getAuthHeaders()
+        }
       )
       
       if (!response.ok) {
@@ -81,17 +92,14 @@ export class MessagingApiService {
    */
   static async sendMessage(
     groupId: number, 
-    senderId: string, 
     messageData: SendMessageRequest
   ): Promise<Message> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/groups/${groupId}/messages?userId=${senderId}`, 
+        `${this.baseUrl}/groups/${groupId}/messages`, 
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify(messageData)
         }
       )
@@ -113,27 +121,21 @@ export class MessagingApiService {
    */
   static async markMessagesAsRead(
     groupId: number, 
-    userId: string, 
     messageIds: number[]
-  ): Promise<number> {
+  ): Promise<void> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/groups/${groupId}/messages?userId=${userId}`, 
+        `${this.baseUrl}/groups/${groupId}/messages`,
         {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ messageIds })
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ messageIds, action: 'mark_read' })
         }
       )
 
       if (!response.ok) {
         throw new Error(`Failed to mark messages as read: ${response.statusText}`)
       }
-
-      const data = await response.json()
-      return data.updatedCount || 0
     } catch (error) {
       console.error('Error marking messages as read:', error)
       throw error
@@ -143,15 +145,13 @@ export class MessagingApiService {
   /**
    * Edit a message
    */
-  static async editMessage(messageId: number, userId: string, newContent: string): Promise<Message> {
+  static async editMessage(messageId: number, newContent: string): Promise<Message> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/messages/${messageId}?userId=${userId}`, 
+        `${this.baseUrl}/messages/${messageId}`, 
         {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ content: newContent })
         }
       )
@@ -171,12 +171,13 @@ export class MessagingApiService {
   /**
    * Delete a message
    */
-  static async deleteMessage(messageId: number, userId: string): Promise<void> {
+  static async deleteMessage(messageId: number): Promise<void> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/messages/${messageId}?userId=${userId}`, 
+        `${this.baseUrl}/messages/${messageId}`, 
         {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: getAuthHeaders()
         }
       )
 

@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -620,6 +621,9 @@ export function MobileMemberSelector({
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="p-0 w-full h-[100dvh] max-w-none max-h-[100dvh] rounded-none border-0 m-0 inset-0 !top-0 !left-0 !translate-x-0 !translate-y-0">
+          <VisuallyHidden>
+            <DialogTitle>Select Team Members</DialogTitle>
+          </VisuallyHidden>
           <div className="flex flex-col h-full w-full overflow-hidden">
             {/* Mobile Header */}
             <div className="flex items-center justify-between p-4 border-b bg-background flex-shrink-0">

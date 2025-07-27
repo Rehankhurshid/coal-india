@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Group, Message, CreateGroupRequest, SendMessageRequest } from '@/types/messaging'
+import { MessagingApiService } from '@/lib/services/messaging-api'
 import { SupabaseMessagingService } from '@/lib/services/supabase-messaging'
 import { RealtimeChannel } from '@supabase/supabase-js'
 
@@ -116,10 +117,14 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
 
   // Load user's groups
   const loadGroups = useCallback(async () => {
+    if (!currentUserId) {
+      setState(prev => ({ ...prev, groups: [] }));
+      return;
+    }
     try {
       setLoading(true)
       setError(null)
-      const groups = await SupabaseMessagingService.getUserGroups(currentUserId)
+      const groups = await MessagingApiService.getUserGroups()
       setState(prev => ({ ...prev, groups }))
     } catch (error) {
       console.error('Error loading groups:', error)
@@ -135,8 +140,12 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
       setLoading(true)
       setError(null)
       console.log('Creating group with data:', groupData)
-      const newGroup = await SupabaseMessagingService.createGroup(currentUserId, groupData)
+      const newGroup = await MessagingApiService.createGroup(groupData)
       console.log('Group created:', newGroup)
+      if (!newGroup) {
+        setError('Unauthorized: cannot create group')
+        return
+      }
       setState(prev => ({ 
         ...prev, 
         groups: [newGroup, ...prev.groups]
@@ -150,7 +159,7 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
     } finally {
       setLoading(false)
     }
-  }, [currentUserId, setError, setLoading, loadGroups])
+  }, [setError, setLoading, loadGroups])
 
   // Select a group and load its messages
   const selectGroup = useCallback(async (groupId: number) => {
@@ -163,7 +172,7 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
         throw new Error('Group not found')
       }
 
-      const messages = await SupabaseMessagingService.getGroupMessages(groupId, currentUserId, messagesLimit, 0)
+      const messages = await MessagingApiService.getGroupMessages(groupId, messagesLimit, 0)
       
       setState(prev => ({ 
         ...prev, 
@@ -183,7 +192,7 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
     } finally {
       setLoading(false)
     }
-  }, [state.groups, currentUserId, messagesLimit, setError, setLoading, setupRealtimeSubscription])
+  }, [state.groups, messagesLimit, setError, setLoading, setupRealtimeSubscription])
 
   // Send a new message
   const sendMessage = useCallback(async (messageData: SendMessageRequest) => {
@@ -193,9 +202,8 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
 
     try {
       setError(null)
-      const newMessage = await SupabaseMessagingService.sendMessage(
-        state.currentGroup.id, 
-        currentUserId, 
+      const newMessage = await MessagingApiService.sendMessage(
+        state.currentGroup.id,
         messageData
       )
       
@@ -217,7 +225,7 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
   const editMessage = useCallback(async (messageId: number, newContent: string) => {
     try {
       setError(null)
-      const updatedMessage = await SupabaseMessagingService.editMessage(messageId, currentUserId, newContent)
+      const updatedMessage = await MessagingApiService.editMessage(messageId, newContent)
       
       setState(prev => ({ 
         ...prev, 
@@ -230,13 +238,13 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
       setError(error instanceof Error ? error.message : 'Failed to edit message')
       throw error
     }
-  }, [currentUserId, setError])
+  }, [setError])
 
   // Delete a message
   const deleteMessage = useCallback(async (messageId: number) => {
     try {
       setError(null)
-      await SupabaseMessagingService.deleteMessage(messageId, currentUserId)
+      await MessagingApiService.deleteMessage(messageId)
       
       setState(prev => ({ 
         ...prev, 
@@ -247,7 +255,7 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
       setError(error instanceof Error ? error.message : 'Failed to delete message')
       throw error
     }
-  }, [currentUserId, setError])
+  }, [setError])
 
   // Mark messages as read
   const markMessagesAsRead = useCallback(async (messageIds: number[]) => {
@@ -262,9 +270,8 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
     try {
       setLoading(true)
       const newOffset = messagesOffset + messagesLimit
-      const moreMessages = await SupabaseMessagingService.getGroupMessages(
+      const moreMessages = await MessagingApiService.getGroupMessages(
         state.currentGroup.id, 
-        currentUserId, 
         messagesLimit, 
         newOffset
       )
@@ -282,7 +289,7 @@ export function useMessaging(currentUserId: string): UseMessagingReturn {
     } finally {
       setLoading(false)
     }
-  }, [state.currentGroup, currentUserId, messagesOffset, messagesLimit, setError, setLoading])
+  }, [state.currentGroup, messagesOffset, messagesLimit, setError, setLoading])
 
   // Clear error
   const clearError = useCallback(() => {

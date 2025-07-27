@@ -75,42 +75,17 @@ export function OtpForm({ sessionId, employeeId, onSuccess, onBack }: OtpFormPro
     setError(null);
 
     try {
-      // Get stored OTP data
-      const otpData = localStorage.getItem(`otp_${sessionId}`);
-      if (!otpData) {
-        throw new Error('OTP session not found. Please request a new OTP.');
+      // Import ClientAuthService at the top of the file
+      const { ClientAuthService } = await import('@/lib/auth/client-auth');
+      
+      // Use ClientAuthService to verify OTP and store session
+      const result = await ClientAuthService.verifyOTP(sessionId, otpValue);
+
+      if (!result.success) {
+        throw new Error(result.message || 'OTP verification failed');
       }
 
-      const parsed = JSON.parse(otpData);
-
-      // Check if OTP is expired
-      if (Date.now() > parsed.expiresAt) {
-        throw new Error('OTP has expired. Please request a new one.');
-      }
-
-      // Verify OTP
-      if (otpValue !== parsed.otp) {
-        throw new Error('Invalid OTP. Please try again.');
-      }
-
-      // Mark OTP as verified
-      parsed.verified = true;
-      localStorage.setItem(`otp_${sessionId}`, JSON.stringify(parsed));
-
-      // Create session token
-      const sessionToken = generateSessionToken();
-      const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
-
-      // Store session
-      localStorage.setItem('auth_session', JSON.stringify({
-        token: sessionToken,
-        employeeId,
-        expiresAt
-      }));
-
-      // Clean up OTP data
-      localStorage.removeItem(`otp_${sessionId}`);
-
+      // Session is now stored, redirect to home
       onSuccess();
 
     } catch (err) {
@@ -156,21 +131,34 @@ export function OtpForm({ sessionId, employeeId, onSuccess, onBack }: OtpFormPro
     }
   };
 
-  const handleDevSkip = () => {
-    if (process.env.NODE_ENV === 'development') {
-      const sessionToken = generateSessionToken();
-      const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+  // Development mode: Skip OTP
+  const handleSkipOtp = async () => {
+    if (process.env.NODE_ENV !== 'development') return
+    
+    console.log('[OTP] Development mode: Skipping OTP verification')
+    
+    setIsLoading(true);
+    setError(null);
 
-      localStorage.setItem('auth_session', JSON.stringify({
-        token: sessionToken,
-        employeeId,
-        expiresAt
-      }));
+    try {
+      // Import ClientAuthService
+      const { ClientAuthService } = await import('@/lib/auth/client-auth');
+      
+      // Use ClientAuthService to verify OTP and store session
+      const result = await ClientAuthService.verifyOTP(sessionId, '123456');
 
-      localStorage.removeItem(`otp_${sessionId}`);
+      if (!result.success) {
+        throw new Error(result.message || 'Development skip failed');
+      }
+
+      console.log('[OTP] Development: Skipped OTP verification')
       onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to skip OTP');
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }
 
   const handleDevTest = () => {
     if (process.env.NODE_ENV === 'development') {
@@ -298,7 +286,7 @@ export function OtpForm({ sessionId, employeeId, onSuccess, onBack }: OtpFormPro
             <Button
               variant="outline"
               size="sm"
-              onClick={handleDevSkip}
+                              onClick={handleSkipOtp}
               className="flex-1 text-xs"
             >
               Skip

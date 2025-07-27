@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProfileImageUpdate } from "@/components/profile-image-update";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -95,7 +95,7 @@ export function AppNav({ className }: AppNavProps) {
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={profileImage || employee.profile_image || undefined} />
                       <AvatarFallback>
-                        {employee.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 
+                        {employee.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 
                          employee.emp_code?.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
@@ -148,7 +148,7 @@ export function AppNav({ className }: AppNavProps) {
                   <Avatar className="h-16 w-16">
                     <AvatarImage src={profileImage || employee.profile_image || undefined} />
                     <AvatarFallback className="text-lg">
-                      {employee.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 
+                      {employee.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 
                        employee.emp_code?.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
