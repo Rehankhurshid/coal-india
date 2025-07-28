@@ -144,25 +144,50 @@ export async function GET(
     }
 
     // Transform messages with sender names (for RPC response)
-    const transformedMessages: Message[] = (messages || []).map((msg: any) => ({
-      id: msg.id,
-      groupId: msg.group_id || msg.groupId,
-      senderId: msg.sender_id || msg.senderId,
-      content: msg.content,
-      messageType: msg.message_type || msg.messageType,
-      status: msg.status,
-      readBy: msg.read_by || msg.readBy || [],
-      createdAt: new Date(msg.created_at || msg.createdAt),
-      editedAt: msg.edited_at || msg.editedAt ? new Date(msg.edited_at || msg.editedAt) : undefined,
-      deletedAt: msg.deleted_at || msg.deletedAt ? new Date(msg.deleted_at || msg.deletedAt) : undefined,
-      senderName: msg.sender_name || msg.senderName || 'Unknown User',
-      editCount: msg.edit_count || msg.editCount || 0,
-      replyToMessage: (msg.reply_to_id && msg.reply_content) ? {
-        id: msg.reply_to_id,
-        content: msg.reply_content,
-        senderName: msg.reply_sender_name || 'Unknown User'
-      } : undefined
-    }));
+    const transformedMessages: Message[] = (messages || []).map((msg: any) => {
+      // Parse attachments from JSON if they come from RPC
+      let attachments = [];
+      if (msg.attachments) {
+        if (typeof msg.attachments === 'string') {
+          try {
+            attachments = JSON.parse(msg.attachments);
+          } catch (e) {
+            console.error('Failed to parse attachments:', e);
+            attachments = [];
+          }
+        } else if (Array.isArray(msg.attachments)) {
+          attachments = msg.attachments;
+        }
+      }
+
+      return {
+        id: msg.id,
+        groupId: msg.group_id || msg.groupId,
+        senderId: msg.sender_id || msg.senderId,
+        content: msg.content,
+        messageType: msg.message_type || msg.messageType,
+        status: msg.status,
+        readBy: msg.read_by || msg.readBy || [],
+        createdAt: new Date(msg.created_at || msg.createdAt),
+        editedAt: msg.edited_at || msg.editedAt ? new Date(msg.edited_at || msg.editedAt) : undefined,
+        deletedAt: msg.deleted_at || msg.deletedAt ? new Date(msg.deleted_at || msg.deletedAt) : undefined,
+        senderName: msg.sender_name || msg.senderName || 'Unknown User',
+        editCount: msg.edit_count || msg.editCount || 0,
+        replyToMessage: (msg.reply_to_id && msg.reply_content) ? {
+          id: msg.reply_to_id,
+          content: msg.reply_content,
+          senderName: msg.reply_sender_name || 'Unknown User'
+        } : undefined,
+        attachments: attachments.map((att: any) => ({
+          id: att.id,
+          fileName: att.file_name,
+          fileType: att.file_type,
+          fileSize: att.file_size,
+          url: att.public_url,
+          uploadedAt: new Date(att.uploaded_at)
+        }))
+      };
+    });
 
     return NextResponse.json({ messages: transformedMessages.reverse() });
 
