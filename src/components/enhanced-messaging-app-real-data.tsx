@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "./error-boundary"
 import { MessageEditDialog, MessageDeleteDialog } from "./messaging/message-edit-dialog"
@@ -15,6 +15,8 @@ import { useIsMobile } from "@/hooks/use-is-mobile"
 import { GroupManagement } from "./group-management"
 import { EditGroupPopup } from "./edit-group-popup"
 import { useConnectionStatus } from "@/hooks/use-connection-status"
+
+const MAX_RECONNECT_ATTEMPTS = 5
 
 interface EnhancedMessagingAppRealDataProps {
   currentUserId: string;
@@ -38,10 +40,10 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
   })
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
-  const [previousConnectionStatus, setPreviousConnectionStatus] = useState<string | null>(null)
+  const lastConnectionStatus = useRef<string | null>(null)
   
   const { triggerHaptic } = useHaptic()
-  const { success, error, info } = useSonnerToast()
+  const { success, error, info, warning } = useSonnerToast()
   const { 
     isOnline, 
     connectionStatus, 
@@ -83,41 +85,52 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
     }
   }, [triggerHaptic, selectGroup])
 
-  // Monitor connection status changes
+  // Monitor connection status changes with ref to avoid excessive re-renders
   useEffect(() => {
-    // Skip initial render
-    if (previousConnectionStatus === null) {
-      setPreviousConnectionStatus(connectionStatus)
+    // Skip if status hasn't changed
+    if (lastConnectionStatus.current === connectionStatus) {
       return
     }
 
-    // Only process if status actually changed
-    if (previousConnectionStatus !== connectionStatus) {
-      console.log('Connection status changed:', previousConnectionStatus, '->', connectionStatus)
+    const prevStatus = lastConnectionStatus.current
+
+    // Only show notifications after initial connection
+    if (prevStatus !== null) {
+      console.log('[Connection] Status changed:', prevStatus, '->', connectionStatus)
       
       // Connection restored
       if (connectionStatus === 'connected') {
-        if (previousConnectionStatus === 'disconnected' || 
-            previousConnectionStatus === 'reconnecting' || 
-            previousConnectionStatus === 'connecting') {
+        if (prevStatus === 'disconnected' || 
+            prevStatus === 'reconnecting' || 
+            prevStatus === 'connecting') {
           info("Connection Restored", "You're back online!")
+          
+          // Refresh data on reconnection
+          if (selectedGroupId) {
+            loadGroups()
+            selectGroup(selectedGroupId)
+          }
         }
       }
       // Connection lost
       else if (connectionStatus === 'disconnected') {
-        if (previousConnectionStatus === 'connected') {
+        if (prevStatus === 'connected') {
           if (!isOnline) {
-            error("Connection Lost", "Messages will be sent when connection is restored.")
+            error("No Internet Connection", "Please check your network settings")
           } else {
-            error("Connection Lost", "Unable to connect to server. Please check your connection.")
+            warning("Connection Lost", "Trying to reconnect...")
           }
         }
       }
-      
-      // Update previous status for next comparison
-      setPreviousConnectionStatus(connectionStatus)
+      // Reconnecting after max attempts
+      else if (connectionStatus === 'reconnecting' && reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        error("Connection Failed", "Unable to establish connection. Please refresh the page.")
+      }
     }
-  }, [connectionStatus, isOnline, info, error])
+    
+    // Update ref for next comparison
+    lastConnectionStatus.current = connectionStatus
+  }, [connectionStatus, isOnline, selectedGroupId, reconnectAttempts, loadGroups, selectGroup, info, error, warning])
 
   // Auto-select first group on desktop if none selected
   useEffect(() => {
