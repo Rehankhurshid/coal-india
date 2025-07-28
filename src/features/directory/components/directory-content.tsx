@@ -1,20 +1,22 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useDirectory } from '../store/directory.context';
 import { useDirectorySearch } from '../hooks/use-directory-search';
 import { EmployeeList } from '@/components/employee-list';
 import { FiltersSidebar } from '@/components/filters-sidebar';
 import { Filters } from '@/components/filters';
 import { Button } from '@/components/ui/button';
-import { SlidersHorizontal, X, Grid3X3, List, MessageSquare } from 'lucide-react';
+import { SlidersHorizontal, X, Grid3X3, List, MessageSquare, IdCard } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
+import { EmployeeIDCardViewer } from '@/components/ui/employee-id-card-viewer';
 
 export function DirectoryContent() {
   const { employee } = useAuth();
   const { state, loadMoreEmployees, setFilter, clearFilters, setViewMode, toggleMobileFilters } = useDirectory();
   const { searchInput, onSearchChange } = useDirectorySearch();
+  const [showUserIDCard, setShowUserIDCard] = useState(false);
   
   const {
     employees,
@@ -95,14 +97,42 @@ export function DirectoryContent() {
           <div className="flex-1 min-w-0">
             {/* Welcome Message */}
             {employee && (
-              <div className="bg-card rounded-lg shadow-sm border border-border p-4 mb-6">
-                <h2 className="text-lg font-semibold text-foreground">
-                  Welcome, {employee.name}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {employee.designation} • {employee.dept} • {employee.emp_code}
-                </p>
-              </div>
+              <>
+                <div className="bg-card rounded-lg shadow-sm border border-border p-4 mb-6 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Welcome, {employee.name}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {employee.designation} • {employee.dept} • {employee.emp_code}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowUserIDCard(true)}
+                    className="ml-4 flex items-center gap-2"
+                  >
+                    <IdCard className="h-4 w-4" />
+                    <span className="hidden sm:inline">View ID</span>
+                  </Button>
+                </div>
+                
+                {/* User ID Card Viewer */}
+                <EmployeeIDCardViewer
+                  employee={{
+                    name: employee.name,
+                    designation: employee.designation,
+                    emp_code: employee.emp_code,
+                    grade: employee.grade,
+                    profile_image: employee.profile_image,
+                    dept: employee.dept,
+                    area_name: employee.area_name,
+                  }}
+                  open={showUserIDCard}
+                  onOpenChange={setShowUserIDCard}
+                />
+              </>
             )}
 
             {/* Mobile Filter Button */}
