@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { MessageAttachment } from './message-attachment'
 
 interface SimpleMessageBubbleProps {
   message: Message
@@ -32,6 +33,7 @@ interface SimpleMessageBubbleProps {
   onEdit?: (message: Message) => void
   onDelete?: (messageId: string) => void
   onCopy?: (content: string) => void
+  onViewAttachment?: (attachment: any) => void
 }
 
 export function SimpleMessageBubble({
@@ -42,7 +44,8 @@ export function SimpleMessageBubble({
   onReply,
   onEdit,
   onDelete,
-  onCopy
+  onCopy,
+  onViewAttachment
 }: SimpleMessageBubbleProps) {
   const [showActions, setShowActions] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -96,6 +99,19 @@ export function SimpleMessageBubble({
             
             <div className="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm">
               {message.content}
+              
+              {/* Attachments */}
+              {message.attachments && message.attachments.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {message.attachments.map((attachment) => (
+                    <MessageAttachment 
+                      key={attachment.id} 
+                      attachment={attachment} 
+                      onView={onViewAttachment}
+                    />
+                  ))}
+                </div>
+              )}
               
               {/* Message Status */}
               <div className="flex items-center justify-end gap-1 mt-1 text-xs text-primary-foreground/70">
@@ -244,6 +260,19 @@ export function SimpleMessageBubble({
           
           <div className="bg-muted rounded-lg px-3 py-2 text-sm">
             {message.content}
+            
+            {/* Attachments */}
+            {message.attachments && message.attachments.length > 0 && (
+              <div className="mt-2 space-y-2">
+                {message.attachments.map((attachment) => (
+                  <MessageAttachment 
+                    key={attachment.id} 
+                    attachment={attachment} 
+                    onView={onViewAttachment}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
         
@@ -315,6 +344,7 @@ interface SimpleMessageListProps {
   onEdit?: (message: Message) => void
   onDelete?: (messageId: string) => void
   onCopy?: (content: string) => void
+  onViewAttachment?: (attachment: any) => void
   className?: string
 }
 
@@ -325,6 +355,7 @@ export function SimpleMessageList({
   onEdit,
   onDelete,
   onCopy,
+  onViewAttachment,
   className
 }: SimpleMessageListProps) {
   return (
@@ -345,6 +376,7 @@ export function SimpleMessageList({
             onEdit={onEdit}
             onDelete={onDelete}
             onCopy={onCopy}
+            onViewAttachment={onViewAttachment}
           />
         )
       })}

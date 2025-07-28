@@ -144,23 +144,49 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
     setShowChat(false)
   }
 
-  const handleSendMessage = async (content: string, replyTo?: Message) => {
+  const handleSendMessage = async (content: string, replyTo?: Message, attachments?: File[]) => {
     if (!isOnline) {
       error("You're offline", "Please check your internet connection and try again.")
       return
     }
 
-    if (content.trim() && currentGroup) {
+    if ((content.trim() || (attachments && attachments.length > 0)) && currentGroup) {
       triggerHaptic("light")
       
       try {
+        let attachmentIds: number[] = []
+        
+        // Upload attachments first if any
+        if (attachments && attachments.length > 0) {
+          const formData = new FormData()
+          attachments.forEach(file => {
+            formData.append('files', file)
+          })
+          formData.append('groupId', currentGroup.id.toString())
+          
+          const uploadResponse = await fetch('/api/messaging/upload', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+          })
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload attachments')
+          }
+          
+          const uploadResult = await uploadResponse.json()
+          attachmentIds = uploadResult.attachments.map((att: any) => att.id)
+        }
+        
         await sendMessage({
-          content: content.trim(),
-          messageType: 'text',
-          replyToId: replyTo?.id
+          content: content.trim() || "(Attachment)",
+          messageType: attachments && attachments.length > 0 ? 'file' : 'text',
+          replyToId: replyTo?.id,
+          attachmentIds
         })
         
         setReplyingTo(null)
+        success("Message sent!")
       } catch (err: any) {
         if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
           error("Authentication error", "Please log in again to continue.")

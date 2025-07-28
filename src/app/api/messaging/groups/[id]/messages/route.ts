@@ -66,7 +66,15 @@ export async function GET(
           edited_at,
           deleted_at,
           reply_to_id,
-          edit_count
+          edit_count,
+          message_attachments (
+            id,
+            file_name,
+            file_type,
+            file_size,
+            public_url,
+            uploaded_at
+          )
         `)
         .eq('group_id', groupId)
         .is('deleted_at', null)
@@ -104,7 +112,15 @@ export async function GET(
         deletedAt: msg.deleted_at ? new Date(msg.deleted_at) : undefined,
         senderName: employeeMap.get(msg.sender_id) || 'Unknown User',
         editCount: msg.edit_count || 0,
-        replyToMessage: undefined // Handle reply messages separately if needed
+        replyToMessage: undefined, // Handle reply messages separately if needed
+        attachments: msg.message_attachments?.map((att: any) => ({
+          id: att.id,
+          fileName: att.file_name,
+          fileType: att.file_type,
+          fileSize: att.file_size,
+          url: att.public_url,
+          uploadedAt: new Date(att.uploaded_at)
+        })) || []
       }))
 
       return NextResponse.json({ messages: transformedMessages.reverse() })
@@ -258,8 +274,8 @@ export async function POST(
     const employeeId = user.employeeId;
     const body: SendMessageRequest = await request.json();
 
-    if (!body.content?.trim()) {
-      return NextResponse.json({ error: 'Message content is required' }, { status: 400 });
+    if (!body.content?.trim() && (!body.attachmentIds || body.attachmentIds.length === 0)) {
+      return NextResponse.json({ error: 'Message content or attachments are required' }, { status: 400 });
     }
 
     console.log('Sending message to group:', groupId, 'from user:', employeeId);
@@ -282,7 +298,7 @@ export async function POST(
       .insert({
         group_id: groupId,
         sender_id: employeeId,
-        content: body.content.trim(),
+        content: body.content?.trim() || '',
         message_type: body.messageType || 'text',
         reply_to_id: body.replyToId || null,
         status: 'sent'
@@ -293,6 +309,23 @@ export async function POST(
     if (insertError) {
       console.error('Error creating message:', insertError);
       return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+    }
+
+    // Update attachments with the message ID if provided
+    let attachments = [];
+    if (body.attachmentIds && body.attachmentIds.length > 0) {
+      const { data: updatedAttachments, error: updateError } = await supabase
+        .from('message_attachments')
+        .update({ message_id: newMessage.id })
+        .in('id', body.attachmentIds)
+        .eq('message_id', -1) // Only update temporary attachments
+        .select('*');
+
+      if (updateError) {
+        console.error('Error updating attachments:', updateError);
+      } else {
+        attachments = updatedAttachments || [];
+      }
     }
 
     // Get sender name separately
@@ -332,7 +365,14 @@ export async function POST(
 
     // Update group's updated_at timestamp and last message
     const senderFirstName = sender?.name?.split(' ')[0] || 'Unknown';
-    const lastMessagePreview = `${senderFirstName}: ${newMessage.content}`;
+    let lastMessagePreview = '';
+    if (newMessage.content) {
+      lastMessagePreview = `${senderFirstName}: ${newMessage.content}`;
+    } else if (attachments.length > 0) {
+      lastMessagePreview = `${senderFirstName}: 📎 ${attachments.length} attachment${attachments.length > 1 ? 's' : ''}`;
+    } else {
+      lastMessagePreview = `${senderFirstName}: Message`;
+    }
     
     await supabase
       .from('messaging_groups')
@@ -354,7 +394,15 @@ export async function POST(
       readBy: newMessage.read_by || [],
       createdAt: new Date(newMessage.created_at),
       senderName: sender?.name || 'Unknown User',
-      replyToMessage
+      replyToMessage,
+      attachments: attachments.map(att => ({
+        id: att.id,
+        fileName: att.file_name,
+        fileType: att.file_type,
+        fileSize: att.file_size,
+        url: att.public_url,
+        uploadedAt: new Date(att.uploaded_at)
+      }))
     };
 
     console.log('Message sent successfully:', message.id);

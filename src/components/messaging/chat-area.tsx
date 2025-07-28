@@ -1,12 +1,13 @@
 "use client"
 
-import React, { useRef, useEffect } from "react"
-import { Message, Group } from "@/types/messaging"
+import React, { useRef, useEffect, useState } from "react"
+import { Message, Group, MessageAttachment } from "@/types/messaging"
 import { SimpleMessageList } from "./simple-message-bubble"
 import { ChatInput } from "./chat-input"
 import { TypingIndicator } from "@/components/typing-indicator"
 import { ChatHeader } from "./chat-header"
 import { ConnectionStatus as ConnectionStatusType } from "@/hooks/use-connection-status"
+import { ImageViewer } from "@/components/ui/image-viewer"
 
 interface ChatAreaProps {
   currentGroup: Group
@@ -20,7 +21,7 @@ interface ChatAreaProps {
   showBackButton?: boolean
   onBackClick?: () => void
   onSettingsClick: () => void
-  onSendMessage: (content: string, replyTo?: Message) => void
+  onSendMessage: (content: string, replyTo?: Message, attachments?: File[]) => void
   onTyping: (typing: boolean) => void
   onReply: (message: Message) => void
   onEdit: (message: Message) => void
@@ -50,10 +51,17 @@ export function ChatArea({
   onClearReply
 }: ChatAreaProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [viewingAttachment, setViewingAttachment] = useState<MessageAttachment | null>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  const handleViewAttachment = (attachment: MessageAttachment) => {
+    if (attachment.fileType.startsWith('image/')) {
+      setViewingAttachment(attachment)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -86,6 +94,7 @@ export function ChatArea({
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onCopy={onCopy}
+                onViewAttachment={handleViewAttachment}
               />
             </>
           )}
@@ -132,8 +141,19 @@ export function ChatArea({
                   ? "Connecting..."
                   : "Type a message..."
           }
+          groupId={currentGroup.id}
         />
       </div>
+
+      {/* Image Viewer */}
+      {viewingAttachment && (
+        <ImageViewer
+          open={!!viewingAttachment}
+          onOpenChange={() => setViewingAttachment(null)}
+          src={viewingAttachment.url}
+          alt={viewingAttachment.fileName}
+        />
+      )}
     </div>
   )
 }

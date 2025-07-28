@@ -39,6 +39,16 @@ export interface Message {
   };
   reactions?: MessageReaction[];
   editCount?: number;
+  attachments?: MessageAttachment[]; // Added for file attachments
+}
+
+export interface MessageAttachment {
+  id: number;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  url: string;
+  uploadedAt: Date;
 }
 
 export interface MessageReaction {
@@ -79,6 +89,7 @@ export interface SendMessageRequest {
   content: string;
   messageType?: 'text' | 'image' | 'file';
   replyToId?: number;
+  attachmentIds?: number[]; // IDs of uploaded attachments
 }
 
 export interface Employee {

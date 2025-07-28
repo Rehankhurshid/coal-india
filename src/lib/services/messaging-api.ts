@@ -192,4 +192,43 @@ export class MessagingApiService {
       throw error
     }
   }
+
+  /**
+   * Upload a file attachment
+   */
+  static async uploadFile(file: File, groupId: number): Promise<{
+    id: string;
+    fileName: string;
+    fileType: string;
+    fileSize: number;
+    url: string;
+    uploadedAt: string;
+  }> {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('groupId', groupId.toString())
+
+      // Get auth headers but remove Content-Type for FormData
+      const headers = getAuthHeaders()
+      const { 'Content-Type': _, ...headersWithoutContentType } = headers as any
+
+      const response = await fetch(`${this.baseUrl}/upload`, {
+        method: 'POST',
+        headers: headersWithoutContentType,
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: response.statusText }))
+        throw new Error(errorData.error || `Failed to upload file: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data.attachment
+    } catch (error) {
+      console.error('Error uploading file:', error)
+      throw error
+    }
+  }
 }
