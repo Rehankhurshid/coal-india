@@ -28,10 +28,54 @@ export async function GET(request: NextRequest) {
     if (sqlError && !sqlError.message.includes('function get_user_groups(user_id => character varying) does not exist')) {
       console.error('Error fetching user groups with SQL function:', sqlError);
     } else if (rawData) {
-      console.log('Using SQL function result:', rawData.length);
+      console.log('Using SQL function result:', rawData.length, 'groups');
+      console.log('Sample group from SQL function:', rawData[0]);
+      
+      // Check if SQL function returns memberCount, if not, enrich the data
+      const needsEnrichment = rawData.length > 0 && !rawData[0].hasOwnProperty('memberCount');
+      
+      if (needsEnrichment) {
+        console.log('SQL function missing memberCount, enriching data...');
+        const enrichedGroups = await Promise.all(
+          rawData.map(async (group: any) => {
+            // Get member count
+            const { count: memberCount } = await supabase
+              .from('messaging_group_members')
+              .select('*', { count: 'exact', head: true })
+              .eq('group_id', group.id);
+            
+            // Use stored last_message if available, otherwise use lastMessage from SQL function
+            const storedLastMessage = group.last_message || group.lastMessage || 'No messages yet';
+            
+            return {
+              ...group,
+              memberCount: memberCount || 0,
+              lastMessage: storedLastMessage
+            };
+          })
+        );
+        
+        return NextResponse.json({
+          success: true,
+          groups: enrichedGroups,
+        });
+      }
+      
+      // Return groups with last_message field
+      const formattedGroups = rawData.map((group: any) => {
+        // Use the stored last_message from the groups table if available
+        const lastMessage = group.last_message || group.lastMessage || 'No messages yet';
+        console.log(`[SQL Function] Group ${group.id} - Using last message:`, lastMessage);
+        
+        return {
+          ...group,
+          lastMessage: lastMessage
+        };
+      });
+      
       return NextResponse.json({
         success: true,
-        groups: rawData,
+        groups: formattedGroups,
       });
     }
 
@@ -78,15 +122,45 @@ export async function GET(request: NextRequest) {
             .select('*', { count: 'exact', head: true })
             .eq('group_id', group.id);
 
-          // Get last message
-          const { data: lastMessage } = await supabase
-            .from('messaging_messages')
-            .select('content, created_at, sender_id')
-            .eq('group_id', group.id)
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          // Check if group has last_message column populated
+          let formattedLastMessage = 'No messages yet';
+          
+          if (group.last_message) {
+            // Use the pre-populated last_message from the groups table
+            formattedLastMessage = group.last_message;
+            console.log(`Group ${group.id} - Using stored last_message:`, formattedLastMessage);
+          } else {
+            // Fallback: Try to fetch the last message manually
+            console.log(`Group ${group.id} - No stored last_message, fetching manually`);
+            
+            const { data: lastMessage } = await supabase
+              .from('messaging_messages')
+              .select('content, created_at, sender_id, status, deleted_at')
+              .eq('group_id', group.id)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (lastMessage && lastMessage.content) {
+              // Get sender name separately to avoid join issues
+              const { data: sender } = await supabase
+                .from('employees')
+                .select('name')
+                .eq('emp_code', lastMessage.sender_id)
+                .single();
+              
+              const senderName = sender?.name?.split(' ')[0] || 'Unknown';
+              formattedLastMessage = `${senderName}: ${lastMessage.content}`;
+              
+              // Truncate if too long
+              if (formattedLastMessage.length > 50) {
+                formattedLastMessage = formattedLastMessage.substring(0, 47) + '...';
+              }
+              
+              console.log(`Group ${group.id} - Formatted message from query:`, formattedLastMessage);
+            }
+          }
 
           // Get unread count for current user
           const { count: totalMessages } = await supabase
@@ -113,7 +187,7 @@ export async function GET(request: NextRequest) {
             createdAt: group.created_at,
             updatedAt: group.updated_at,
             memberCount: memberCount || 0,
-            lastMessage: lastMessage?.content || 'No messages yet',
+            lastMessage: formattedLastMessage,
             unreadCount: unreadCount,
             userRole: membership?.role || 'member',
             avatar: group.name.split(' ').map((word: string) => word.charAt(0)).join('').toUpperCase().slice(0, 2)

@@ -283,6 +283,11 @@ export function useEnhancedRealtimeMessaging(currentUserId: string): UseEnhanced
       setLoading(true)
       setError(null)
       const groups = await MessagingApiService.getUserGroups()
+      console.log('Loaded groups with member counts:', groups.map(g => ({ 
+        id: g.id, 
+        name: g.name, 
+        memberCount: g.memberCount 
+      }))) // Enhanced debug log
       setState(prev => ({ ...prev, groups }))
     } catch (error) {
       console.error('Error loading groups:', error)
@@ -304,12 +309,18 @@ export function useEnhancedRealtimeMessaging(currentUserId: string): UseEnhanced
         return
       }
       
+      // Ensure the new group has memberCount
+      const groupWithMemberCount = {
+        ...newGroup,
+        memberCount: newGroup.memberCount || (1 + (groupData.memberIds?.length || 0))
+      }
+      
       setState(prev => ({ 
         ...prev, 
-        groups: [newGroup, ...prev.groups]
+        groups: [groupWithMemberCount, ...prev.groups]
       }))
       
-      // Reload groups to ensure sync
+      // Reload groups to ensure sync and get accurate member counts
       await loadGroups()
     } catch (error) {
       console.error('Error creating group:', error)
@@ -326,7 +337,19 @@ export function useEnhancedRealtimeMessaging(currentUserId: string): UseEnhanced
       setLoading(true)
       setError(null)
       
-      const selectedGroup = state.groups.find(g => g.id === groupId)
+      // First try to find the group in our current state
+      let selectedGroup = state.groups.find(g => g.id === groupId)
+      
+      // If not found or missing memberCount, fetch fresh group data
+      if (!selectedGroup || !selectedGroup.memberCount) {
+        // Get fresh group data from the API
+        const freshGroups = await MessagingApiService.getUserGroups()
+        selectedGroup = freshGroups.find(g => g.id === groupId)
+        
+        // Update our groups state with fresh data
+        setState(prev => ({ ...prev, groups: freshGroups }))
+      }
+      
       if (!selectedGroup) {
         throw new Error('Group not found')
       }

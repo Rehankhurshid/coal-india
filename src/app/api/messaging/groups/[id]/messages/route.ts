@@ -330,10 +330,17 @@ export async function POST(
       }
     }
 
-    // Update group's updated_at timestamp
+    // Update group's updated_at timestamp and last message
+    const senderFirstName = sender?.name?.split(' ')[0] || 'Unknown';
+    const lastMessagePreview = `${senderFirstName}: ${newMessage.content}`;
+    
     await supabase
       .from('messaging_groups')
-      .update({ updated_at: new Date().toISOString() })
+      .update({ 
+        updated_at: new Date().toISOString(),
+        last_message: lastMessagePreview.length > 50 ? lastMessagePreview.substring(0, 47) + '...' : lastMessagePreview,
+        last_message_at: new Date().toISOString()
+      })
       .eq('id', groupId);
 
     // Transform the message response

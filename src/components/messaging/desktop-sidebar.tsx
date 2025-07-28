@@ -5,13 +5,15 @@ import { MessageSquare, Search, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ConnectionStatus } from "@/components/connection-status"
+import { ConnectionStatus as ConnectionStatusType } from "@/hooks/use-connection-status"
 import { Group } from "@/types/messaging"
 import { GroupListItem } from "./group-list-item"
 
 interface DesktopSidebarProps {
   isOnline: boolean
-  isConnected: boolean
+  connectionStatus: ConnectionStatusType
   queuedMessagesCount: number
+  reconnectAttempts?: number
   searchInput: string
   onSearchChange: (value: string) => void
   groups: Group[]
@@ -23,8 +25,9 @@ interface DesktopSidebarProps {
 
 export function DesktopSidebar({
   isOnline,
-  isConnected,
+  connectionStatus,
   queuedMessagesCount,
+  reconnectAttempts = 0,
   searchInput,
   onSearchChange,
   groups,
@@ -49,8 +52,9 @@ export function DesktopSidebar({
           <div className="flex items-center gap-2">
             <ConnectionStatus
               isOnline={isOnline}
-              isConnected={isConnected}
+              connectionStatus={connectionStatus}
               queuedMessagesCount={queuedMessagesCount}
+              reconnectAttempts={reconnectAttempts}
             />
             <Button
               variant="ghost"

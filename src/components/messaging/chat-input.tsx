@@ -167,7 +167,8 @@ export function ChatInput({
             maxLength={maxLength}
             className={cn(
               "min-h-[40px] max-h-32 resize-none border-0 shadow-none focus-visible:ring-0",
-              "bg-muted rounded-lg px-3 py-2"
+              "bg-muted rounded-lg px-3 py-2",
+              disabled && "opacity-50 cursor-not-allowed"
             )}
             rows={1}
           />

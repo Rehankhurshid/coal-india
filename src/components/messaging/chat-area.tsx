@@ -6,16 +6,17 @@ import { SimpleMessageList } from "./simple-message-bubble"
 import { ChatInput } from "./chat-input"
 import { TypingIndicator } from "@/components/typing-indicator"
 import { ChatHeader } from "./chat-header"
+import { ConnectionStatus as ConnectionStatusType } from "@/hooks/use-connection-status"
 
 interface ChatAreaProps {
   currentGroup: Group
   messages: Message[]
   currentUserId: string
   typingUsers: Array<{ userId: string; userName: string }>
-  onlineUsersCount: number
   replyingTo: Message | null
   isOnline: boolean
   isConnected: boolean
+  connectionStatus?: ConnectionStatusType
   showBackButton?: boolean
   onBackClick?: () => void
   onSettingsClick: () => void
@@ -33,10 +34,10 @@ export function ChatArea({
   messages,
   currentUserId,
   typingUsers,
-  onlineUsersCount,
   replyingTo,
   isOnline,
   isConnected,
+  connectionStatus,
   showBackButton = false,
   onBackClick,
   onSettingsClick,
@@ -58,7 +59,6 @@ export function ChatArea({
     <div className="flex flex-col h-full">
       <ChatHeader
         group={currentGroup}
-        onlineUsersCount={onlineUsersCount}
         isConnected={isConnected}
         onBackClick={onBackClick}
         onSettingsClick={onSettingsClick}
@@ -102,14 +102,36 @@ export function ChatArea({
       )}
 
       {/* Chat Input */}
-      <div className={`border-t border-border bg-background shrink-0`}>
+      <div className={`border-t border-border bg-background shrink-0 relative`}>
+        {/* Connection Status Overlay */}
+        {(!isOnline || (connectionStatus && connectionStatus === 'disconnected')) && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+            <div className="text-center p-4">
+              <p className="text-sm font-medium text-muted-foreground">
+                {!isOnline ? "You're offline" : "Connection lost"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {!isOnline ? "Check your internet connection" : "Reconnecting..."}
+              </p>
+            </div>
+          </div>
+        )}
+        
         <ChatInput
           onSendMessage={onSendMessage}
           onTyping={onTyping}
           replyToMessage={replyingTo}
           onClearReply={onClearReply}
-          disabled={!isOnline}
-          placeholder={isOnline ? "Type a message..." : "You're offline"}
+          disabled={!isOnline || (connectionStatus && connectionStatus !== 'connected')}
+          placeholder={
+            !isOnline 
+              ? "You're offline - check your connection" 
+              : connectionStatus === 'disconnected' 
+                ? "Connection lost - reconnecting..." 
+                : connectionStatus === 'connecting'
+                  ? "Connecting..."
+                  : "Type a message..."
+          }
         />
       </div>
     </div>

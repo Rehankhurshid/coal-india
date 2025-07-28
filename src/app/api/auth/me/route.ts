@@ -39,7 +39,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<MeResponse
         phone_2,
         grade,
         category,
-        is_active
+        is_active,
+        profile_image
       `)
       .eq('emp_code', authenticatedUser.employeeId)
       .eq('is_active', true)

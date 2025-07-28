@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Users, Search, Settings, Menu, User, LogOut, Camera, MessageSquare, Bell, BellOff } from "lucide-react";
+import { Users, Menu, LogOut, MessageSquare, Bell, BellOff, ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -24,8 +24,6 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { name: "Directory", href: "/", icon: Users },
   { name: "Messages", href: "/messaging", icon: MessageSquare },
-  { name: "Search", href: "/search", icon: Search },
-  // { name: "Departments", href: "/departments", icon: Settings }, // Hidden as requested
 ];
 
 interface AppNavProps {
@@ -93,14 +91,18 @@ export function AppNav({ className }: AppNavProps) {
             {employee && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Button variant="ghost" className="relative flex items-center gap-1 h-auto px-2 py-1 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={profileImage || employee.profile_image || undefined} />
+                      <AvatarImage 
+                        src={profileImage || employee.profile_image || undefined} 
+                        alt={employee.name}
+                      />
                       <AvatarFallback>
                         {employee.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 
                          employee.emp_code?.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>

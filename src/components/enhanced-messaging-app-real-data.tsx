@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Toaster } from "sonner"
 import { ErrorBoundary } from "./error-boundary"
 import { MessageEditDialog, MessageDeleteDialog } from "./messaging/message-edit-dialog"
 import { Message, Group } from "@/types/messaging"
@@ -15,20 +14,7 @@ import { useSonnerToast } from "@/hooks/use-sonner-toast"
 import { useIsMobile } from "@/hooks/use-is-mobile"
 import { GroupManagement } from "./group-management"
 import { EditGroupPopup } from "./edit-group-popup"
-import { MobileDebug } from "./mobile-debug"
-
-interface SidebarContentProps {
-  isOnline: boolean;
-  isConnected: boolean;
-  queuedMessagesCount: number;
-  onNewGroup: () => void;
-  searchInput: string;
-  onSearchChange: (value: string) => void;
-  groups: Group[];
-  selectedGroupId: number | null;
-  onGroupClick: (groupId: number) => void;
-  searchQuery: string;
-}
+import { useConnectionStatus } from "@/hooks/use-connection-status"
 
 interface EnhancedMessagingAppRealDataProps {
   currentUserId: string;
@@ -52,9 +38,16 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
   })
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
+  const [previousConnectionStatus, setPreviousConnectionStatus] = useState<string | null>(null)
   
   const { triggerHaptic } = useHaptic()
   const { success, error, info } = useSonnerToast()
+  const { 
+    isOnline, 
+    connectionStatus, 
+    isConnected: globalIsConnected,
+    reconnectAttempts 
+  } = useConnectionStatus()
 
   const {
     groups,
@@ -74,19 +67,10 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
     sendTypingIndicator
   } = useEnhancedRealtimeMessaging(currentUserId)
 
-  // Get online users count (mock for now)
-  const onlineUsersCount = 3
-
   const searchQuery = searchInput.toLowerCase()
 
-  // Auto-select first group on desktop if none selected
-  useEffect(() => {
-    if (!selectedGroupId && groups.length > 0 && !isMobile) {
-      handleGroupClick(groups[0].id)
-    }
-  }, [groups, isMobile])
-
-  const handleGroupClick = async (groupId: number) => {
+  // Group click handler
+  const handleGroupClick = useCallback(async (groupId: number) => {
     triggerHaptic("light")
     setSelectedGroupId(groupId)
     setShowChat(true)
@@ -97,7 +81,50 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
     } catch (error) {
       console.error('Failed to select group:', error)
     }
-  }
+  }, [triggerHaptic, selectGroup])
+
+  // Monitor connection status changes
+  useEffect(() => {
+    // Skip initial render
+    if (previousConnectionStatus === null) {
+      setPreviousConnectionStatus(connectionStatus)
+      return
+    }
+
+    // Only process if status actually changed
+    if (previousConnectionStatus !== connectionStatus) {
+      console.log('Connection status changed:', previousConnectionStatus, '->', connectionStatus)
+      
+      // Connection restored
+      if (connectionStatus === 'connected') {
+        if (previousConnectionStatus === 'disconnected' || 
+            previousConnectionStatus === 'reconnecting' || 
+            previousConnectionStatus === 'connecting') {
+          info("Connection Restored", "You're back online!")
+        }
+      }
+      // Connection lost
+      else if (connectionStatus === 'disconnected') {
+        if (previousConnectionStatus === 'connected') {
+          if (!isOnline) {
+            error("Connection Lost", "Messages will be sent when connection is restored.")
+          } else {
+            error("Connection Lost", "Unable to connect to server. Please check your connection.")
+          }
+        }
+      }
+      
+      // Update previous status for next comparison
+      setPreviousConnectionStatus(connectionStatus)
+    }
+  }, [connectionStatus, isOnline, info, error])
+
+  // Auto-select first group on desktop if none selected
+  useEffect(() => {
+    if (!selectedGroupId && groups.length > 0 && !isMobile) {
+      handleGroupClick(groups[0].id)
+    }
+  }, [groups, isMobile, selectedGroupId, handleGroupClick])
 
   const handleBackClick = () => {
     triggerHaptic("light")
@@ -105,6 +132,11 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
   }
 
   const handleSendMessage = async (content: string, replyTo?: Message) => {
+    if (!isOnline) {
+      error("You're offline", "Please check your internet connection and try again.")
+      return
+    }
+
     if (content.trim() && currentGroup) {
       triggerHaptic("light")
       
@@ -116,8 +148,12 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
         })
         
         setReplyingTo(null)
-      } catch (err) {
-        error("Failed to send message", "Please try again.")
+      } catch (err: any) {
+        if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+          error("Authentication error", "Please log in again to continue.")
+        } else {
+          error("Failed to send message", "Please try again.")
+        }
       }
     }
   }
@@ -177,8 +213,7 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
   // Get typing users for current group (already filtered in the hook)
   const currentTypingUsers = currentGroup ? typingUsers : []
 
-  // Connection status 
-  const isOnline = true
+  // Calculate queued messages count (for future implementation)
   const queuedMessagesCount = 0
 
   if (messagingError) {
@@ -199,14 +234,15 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
         console.error("Enhanced messaging app error:", err, errorInfo)
       }}
     >
-      <div className="h-full min-h-[100dvh] md:h-full bg-background text-foreground">
-        <div className="flex h-full min-h-[100dvh] md:h-full">
+      <div className="h-full bg-background text-foreground">
+        <div className="flex h-full overflow-hidden">
           {/* Desktop Sidebar */}
-          <div className="hidden md:block w-64 border-r border-border h-full">
-            <DesktopSidebar 
+          <div className="hidden md:block w-80 border-r border-border h-full">
+            <DesktopSidebar
               isOnline={isOnline}
-              isConnected={isConnected}
+              connectionStatus={connectionStatus}
               queuedMessagesCount={queuedMessagesCount}
+              reconnectAttempts={reconnectAttempts}
               onNewGroup={handleNewGroup}
               searchInput={searchInput}
               onSearchChange={setSearchInput}
@@ -228,8 +264,9 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
                 </div>
                 <DesktopSidebar 
                   isOnline={isOnline}
-                  isConnected={isConnected}
+                  connectionStatus={connectionStatus}
                   queuedMessagesCount={queuedMessagesCount}
+                  reconnectAttempts={reconnectAttempts}
                   onNewGroup={handleNewGroup}
                   searchInput={searchInput}
                   onSearchChange={setSearchInput}
@@ -254,12 +291,12 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
                 currentGroup={currentGroup}
                 messages={messages}
                 currentUserId={currentUserId}
-                onlineUsersCount={onlineUsersCount}
                 showBackButton={isMobile}
                 typingUsers={currentTypingUsers}
                 replyingTo={replyingTo}
                 isOnline={isOnline}
-                isConnected={isConnected}
+                isConnected={globalIsConnected || isConnected}
+                connectionStatus={connectionStatus}
                 onBackClick={handleBackClick}
                 onSettingsClick={() => {
                   triggerHaptic("light")
@@ -341,16 +378,6 @@ export function EnhancedMessagingAppRealData({ currentUserId }: EnhancedMessagin
             }}
           />
         )}
-
-        <Toaster />
-        
-        {/* Debug Info */}
-        <MobileDebug 
-          groups={groups}
-          showChat={showChat}
-          selectedGroupId={selectedGroupId}
-          currentGroup={currentGroup}
-        />
       </div>
     </ErrorBoundary>
   )

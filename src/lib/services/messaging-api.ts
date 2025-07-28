@@ -23,6 +23,9 @@ export class MessagingApiService {
         throw new Error(`Failed to fetch groups: ${response.statusText}`)
       }
       const data = await response.json()
+      console.log('🔍 Raw API response:', JSON.stringify(data, null, 2))
+      console.log('🔍 Groups from API:', data.groups)
+      console.log('🔍 First group details:', data.groups?.[0] ? JSON.stringify(data.groups[0], null, 2) : 'No groups')
       return data.groups || []
     } catch (error) {
       console.error('Error fetching user groups:', error)

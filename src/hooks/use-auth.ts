@@ -1,113 +1,88 @@
-'use client'
+'use client';
 
-import { useState, useEffect, useCallback } from 'react'
-import { ClientAuthService } from '@/lib/auth/client-auth'
+import { useState, useEffect } from 'react';
+import { ClientAuthService } from '@/lib/auth/client-auth';
+import type { Employee } from '@/types/employee';
 
-interface AuthState {
-  currentUserId: string | null
-  employee: any | null
-  loading: boolean
-  isAuthenticated: boolean
-  error: string | null
+interface UseAuthReturn {
+  currentUserId: string | null;
+  loading: boolean;
+  isAuthenticated: boolean;
+  employee: Employee | null;
+  logout: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
 }
 
-export function useAuth() {
-  const [authState, setAuthState] = useState<AuthState>({
-    currentUserId: null,
-    employee: null,
-    loading: true,
-    isAuthenticated: false,
-    error: null
-  })
+export function useAuth(): UseAuthReturn {
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const checkAuth = useCallback(async () => {
+  const checkAuth = async () => {
     try {
-      setAuthState(prev => ({ ...prev, loading: true, error: null }))
+      setLoading(true);
       
-      const session = await ClientAuthService.getValidSession()
+      // Check if user is authenticated
+      const authenticated = ClientAuthService.isAuthenticated();
+      setIsAuthenticated(authenticated);
       
-      if (!session) {
-        setAuthState({
-          currentUserId: null,
-          employee: null,
-          loading: false,
-          isAuthenticated: false,
-          error: null
-        })
-        return
+      if (authenticated) {
+        // Get current user ID
+        const userId = ClientAuthService.getCurrentUserId();
+        setCurrentUserId(userId);
+        
+        // Get user data
+        const userData = await ClientAuthService.getCurrentUser();
+        setEmployee(userData);
+      } else {
+        setCurrentUserId(null);
+        setEmployee(null);
       }
-
-      const employee = await ClientAuthService.getCurrentUser()
-      
-      if (!employee) {
-        // User data not found, clear session
-        ClientAuthService.clearSession()
-        setAuthState({
-          currentUserId: null,
-          employee: null,
-          loading: false,
-          isAuthenticated: false,
-          error: 'User data not found'
-        })
-        return
-      }
-
-      // Ensure employee object is serializable
-      const serializedEmployee = JSON.parse(JSON.stringify(employee))
-
-      setAuthState({
-        currentUserId: session.employeeId,
-        employee: serializedEmployee,
-        loading: false,
-        isAuthenticated: true,
-        error: null
-      })
     } catch (error) {
-      console.error('Auth check error:', error)
-      setAuthState({
-        currentUserId: null,
-        employee: null,
-        loading: false,
-        isAuthenticated: false,
-        error: error instanceof Error ? error.message : 'Authentication error'
-      })
+      console.error('Auth check error:', error);
+      setCurrentUserId(null);
+      setEmployee(null);
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
     }
-  }, [])
+  };
 
-  const logout = useCallback(async () => {
-    try {
-      await ClientAuthService.logout()
-      setAuthState({
-        currentUserId: null,
-        employee: null,
-        loading: false,
-        isAuthenticated: false,
-        error: null
-      })
-    } catch (error) {
-      console.error('Logout error:', error)
-      // Force clear local state even if API call fails
-      setAuthState({
-        currentUserId: null,
-        employee: null,
-        loading: false,
-        isAuthenticated: false,
-        error: null
-      })
-    }
-  }, [])
+  const logout = async () => {
+    await ClientAuthService.logout();
+    setCurrentUserId(null);
+    setEmployee(null);
+    setIsAuthenticated(false);
+  };
 
-  const refreshAuth = useCallback(() => {
-    checkAuth()
-  }, [checkAuth])
+  const refreshAuth = async () => {
+    await checkAuth();
+  };
 
   useEffect(() => {
-    checkAuth()
-  }, [checkAuth])
+    checkAuth();
+
+    // Listen for storage events to sync auth state across tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth_session') {
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   return {
-    ...authState,
+    currentUserId,
+    loading,
+    isAuthenticated,
+    employee,
     logout,
-    refreshAuth
-  }
+    refreshAuth,
+  };
 }

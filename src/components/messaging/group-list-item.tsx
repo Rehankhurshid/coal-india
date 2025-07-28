@@ -32,7 +32,7 @@ export function GroupListItem({ group, isSelected, onClick }: GroupListItemProps
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-1">
           <p className="font-medium truncate">{group.name}</p>
           {(group.unreadCount || 0) > 0 && (
             <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full">
@@ -42,6 +42,9 @@ export function GroupListItem({ group, isSelected, onClick }: GroupListItemProps
         </div>
         <p className="text-xs text-muted-foreground truncate">
           {group.lastMessage || 'No messages yet'}
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {group.memberCount || 0} {group.memberCount === 1 ? 'member' : 'members'}
         </p>
       </div>
     </div>
