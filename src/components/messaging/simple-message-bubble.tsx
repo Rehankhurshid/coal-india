@@ -72,11 +72,11 @@ export function SimpleMessageBubble({
     // Your messages - right aligned
     return (
       <div 
-        className="flex justify-end px-4 py-2 group hover:bg-muted/30 transition-colors"
+        className="flex justify-end px-2 sm:px-4 py-2 group hover:bg-muted/30 transition-colors"
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
-        <div className="flex flex-row-reverse items-start gap-3 max-w-md">
+        <div className="flex flex-row-reverse items-start gap-2 sm:gap-3 max-w-[85%] sm:max-w-md">
           {showAvatar && (
             <Avatar className="h-8 w-8 flex-shrink-0">
               <AvatarFallback className="bg-primary/10 text-primary text-xs">
@@ -97,12 +97,14 @@ export function SimpleMessageBubble({
               </div>
             )}
             
-            <div className="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm">
-              {message.content}
+            <div className="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm overflow-hidden">
+              {message.content && (
+                <div className="break-words">{message.content}</div>
+              )}
               
               {/* Attachments */}
               {message.attachments && message.attachments.length > 0 && (
-                <div className="mt-2 space-y-2">
+                <div className="mt-2 space-y-2 overflow-x-auto">
                   {message.attachments.map((attachment) => (
                     <MessageAttachment 
                       key={attachment.id} 
@@ -220,12 +222,12 @@ export function SimpleMessageBubble({
 
   // Other users' messages - left aligned
   return (
-    <div 
-      className="flex justify-start px-4 py-2 group hover:bg-muted/30 transition-colors"
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-    >
-      <div className="flex items-start gap-3 max-w-md">
+      <div 
+        className="flex justify-start px-2 sm:px-4 py-2 group hover:bg-muted/30 transition-colors"
+        onMouseEnter={() => setShowActions(true)}
+        onMouseLeave={() => setShowActions(false)}
+      >
+      <div className="flex items-start gap-2 sm:gap-3 max-w-[85%] sm:max-w-md">
         {showAvatar && (
           <Avatar className="h-8 w-8 flex-shrink-0">
             <AvatarFallback className="bg-muted text-foreground text-xs">
@@ -258,12 +260,14 @@ export function SimpleMessageBubble({
             </div>
           )}
           
-          <div className="bg-muted rounded-lg px-3 py-2 text-sm">
-            {message.content}
+          <div className="bg-muted rounded-lg px-3 py-2 text-sm overflow-hidden">
+            {message.content && (
+              <div className="break-words">{message.content}</div>
+            )}
             
             {/* Attachments */}
             {message.attachments && message.attachments.length > 0 && (
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 space-y-2 overflow-x-auto">
                 {message.attachments.map((attachment) => (
                   <MessageAttachment 
                     key={attachment.id} 
