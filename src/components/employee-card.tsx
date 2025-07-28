@@ -2,9 +2,10 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Phone, Mail, MapPin, User, Clock } from "lucide-react";
+import { Phone, Mail, MapPin, User, Clock, Camera } from "lucide-react";
 import { Employee } from "@/lib/supabase";
 import { EmployeeDetailsModalEnhanced } from "./employee-details-modal-enhanced";
+import { EmployeeIDCardViewer } from "@/components/ui/employee-id-card-viewer";
 import * as React from "react";
 
 interface EmployeeCardProps {
@@ -13,6 +14,7 @@ interface EmployeeCardProps {
 
 export function EmployeeCard({ employee }: EmployeeCardProps) {
   const [showDetailModal, setShowDetailModal] = React.useState(false);
+  const [showImageViewer, setShowImageViewer] = React.useState(false);
   
   const getInitials = (name: string) => {
     return name
@@ -45,12 +47,22 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3 min-w-0 flex-1">
-            <Avatar className="h-12 w-12 flex-shrink-0 ring-2 ring-border group-hover:ring-primary/30 transition-all">
-              <AvatarImage src={employee.profile_image || undefined} />
-              <AvatarFallback className="bg-primary/20 dark:bg-primary/30 text-primary font-medium">
-                {getInitials(employee.name)}
-              </AvatarFallback>
-            </Avatar>
+            <div 
+              className="relative cursor-pointer group/avatar"
+              onClick={() => employee.profile_image && setShowImageViewer(true)}
+            >
+              <Avatar className="h-12 w-12 flex-shrink-0 ring-2 ring-border group-hover:ring-primary/30 transition-all">
+                <AvatarImage src={employee.profile_image || undefined} />
+                <AvatarFallback className="bg-primary/20 dark:bg-primary/30 text-primary font-medium">
+                  {getInitials(employee.name)}
+                </AvatarFallback>
+              </Avatar>
+              {employee.profile_image && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity pointer-events-none">
+                  <Camera className="h-4 w-4 text-white" />
+                </div>
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-lg text-foreground truncate">
                 {employee.name}
@@ -174,6 +186,13 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
           onOpenChange={setShowDetailModal}
         />
       )}
+
+      {/* Employee ID Card Viewer */}
+      <EmployeeIDCardViewer
+        employee={employee}
+        open={showImageViewer}
+        onOpenChange={setShowImageViewer}
+      />
     </Card>
   );
 }

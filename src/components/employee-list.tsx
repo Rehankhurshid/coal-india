@@ -3,9 +3,11 @@ import { EmployeeCard } from "./employee-card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Phone, Mail, MapPin, User } from "lucide-react";
+import { Phone, Mail, MapPin, User, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
+import { EmployeeIDCardViewer } from "@/components/ui/employee-id-card-viewer";
+import { EmployeeDetailsModalEnhanced } from "./employee-details-modal-enhanced";
 
 interface EmployeeListProps {
   employees: Employee[];
@@ -19,6 +21,9 @@ interface EmployeeListProps {
 }
 
 function EmployeeListItem({ employee }: { employee: Employee }) {
+  const [showImageViewer, setShowImageViewer] = React.useState(false);
+  const [showDetailModal, setShowDetailModal] = React.useState(false);
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -39,12 +44,22 @@ function EmployeeListItem({ employee }: { employee: Employee }) {
 
   return (
     <div className="flex items-center space-x-4 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors bg-card">
-      <Avatar className="h-10 w-10 flex-shrink-0">
-        <AvatarImage src={employee.profile_image || undefined} />
-        <AvatarFallback className="bg-primary/20 dark:bg-primary/30 text-primary font-medium">
-          {getInitials(employee.name)}
-        </AvatarFallback>
-      </Avatar>
+      <div 
+        className="relative cursor-pointer group/avatar flex-shrink-0"
+        onClick={() => employee.profile_image && setShowImageViewer(true)}
+      >
+        <Avatar className="h-10 w-10">
+          <AvatarImage src={employee.profile_image || undefined} />
+          <AvatarFallback className="bg-primary/20 dark:bg-primary/30 text-primary font-medium">
+            {getInitials(employee.name)}
+          </AvatarFallback>
+        </Avatar>
+        {employee.profile_image && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity pointer-events-none">
+            <Camera className="h-3 w-3 text-white" />
+          </div>
+        )}
+      </div>
       
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center justify-between">
@@ -108,10 +123,30 @@ function EmployeeListItem({ employee }: { employee: Employee }) {
             <Mail className="h-4 w-4" />
           </Button>
         )}
-        <Button size="sm" variant="default">
+        <Button 
+          size="sm" 
+          variant="default"
+          onClick={() => setShowDetailModal(true)}
+        >
           View
         </Button>
       </div>
+
+      {/* Employee Details Modal */}
+      {showDetailModal && (
+        <EmployeeDetailsModalEnhanced
+          empCode={employee.emp_code}
+          open={showDetailModal}
+          onOpenChange={setShowDetailModal}
+        />
+      )}
+
+      {/* Employee ID Card Viewer */}
+      <EmployeeIDCardViewer
+        employee={employee}
+        open={showImageViewer}
+        onOpenChange={setShowImageViewer}
+      />
     </div>
   );
 }

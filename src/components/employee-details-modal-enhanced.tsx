@@ -22,8 +22,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImageViewer } from "@/components/ui/image-viewer";
 import { Employee, supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { shareContact, downloadVCard } from "@/lib/utils/vcard";
 
 // Utility functions to decode codes to readable values
 const getCasteDisplay = (casteCode: string | null | undefined): string | null => {
@@ -84,6 +86,8 @@ import {
   DollarSign,
   IdCard,
   Flag,
+  UserPlus,
+  Camera,
 } from "lucide-react";
 
 interface EmployeeDetailsModalEnhancedProps {
@@ -271,6 +275,7 @@ export function EmployeeDetailsModalEnhanced({ empCode, open, onOpenChange }: Em
   const [activeTab, setActiveTab] = React.useState("overview");
   const [activeSection, setActiveSection] = React.useState("overview");
   const [isHeaderCompact, setIsHeaderCompact] = React.useState(false);
+  const [showImageViewer, setShowImageViewer] = React.useState(false);
   const tabsContainerRef = React.useRef<HTMLDivElement>(null);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
@@ -479,6 +484,20 @@ export function EmployeeDetailsModalEnhanced({ empCode, open, onOpenChange }: Em
     }
   };
 
+  const handleAddToContacts = async () => {
+    if (!employee) return;
+    
+    try {
+      const shared = await shareContact(employee);
+      if (!shared) {
+        toast.success("Contact file downloaded");
+      }
+    } catch (error) {
+      console.error("Failed to add contact:", error);
+      toast.error("Failed to add contact");
+    }
+  };
+
   // Modal content
   const modalContent = (
     <>
@@ -505,13 +524,22 @@ export function EmployeeDetailsModalEnhanced({ empCode, open, onOpenChange }: Em
                       height: isHeaderCompact ? "3rem" : "4rem"
                     }}
                     transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="relative group"
                   >
-                    <Avatar className="h-full w-full flex-shrink-0">
+                    <Avatar 
+                      className="h-full w-full flex-shrink-0 cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all"
+                      onClick={() => employee.profile_image && setShowImageViewer(true)}
+                    >
                       <AvatarImage src={employee.profile_image || undefined} />
                       <AvatarFallback className="bg-primary/10 text-primary font-medium text-lg">
                         {getInitials(employee.name)}
                       </AvatarFallback>
                     </Avatar>
+                    {employee.profile_image && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <Camera className="h-5 w-5 text-white" />
+                      </div>
+                    )}
                   </motion.div>
                   <div className="flex-1 min-w-0">
                     <motion.h1 
@@ -596,6 +624,16 @@ export function EmployeeDetailsModalEnhanced({ empCode, open, onOpenChange }: Em
                       <TooltipContent>Email</TooltipContent>
                     </Tooltip>
                   )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Button variant="outline" size={isHeaderCompact ? "sm" : "icon"} onClick={handleAddToContacts}>
+                          <UserPlus className={cn(isHeaderCompact ? "h-3 w-3" : "h-4 w-4")} />
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Add to Contacts</TooltipContent>
+                  </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div>
@@ -791,6 +829,16 @@ export function EmployeeDetailsModalEnhanced({ empCode, open, onOpenChange }: Em
           </div>
         </div>
       ) : null}
+
+      {/* Image Viewer */}
+      {employee?.profile_image && (
+        <ImageViewer
+          src={employee.profile_image}
+          alt={employee.name}
+          open={showImageViewer}
+          onOpenChange={setShowImageViewer}
+        />
+      )}
     </>
   );
 
@@ -823,8 +871,35 @@ export function EmployeeDetailsModalEnhanced({ empCode, open, onOpenChange }: Em
 
 // Tab Components
 function OverviewTab({ employee }: { employee: Employee }) {
+  const [showImageViewer, setShowImageViewer] = React.useState(false);
+  
   return (
     <div className="space-y-6">
+      {/* Profile Photo Card */}
+      {employee.profile_image && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" />
+              Profile Photo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="relative inline-block group cursor-pointer" onClick={() => setShowImageViewer(true)}>
+              <img 
+                src={employee.profile_image} 
+                alt={employee.name}
+                className="w-32 h-32 rounded-lg object-cover ring-2 ring-border hover:ring-primary/50 transition-all"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                <Eye className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Click to view full size</p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -839,6 +914,16 @@ function OverviewTab({ employee }: { employee: Employee }) {
           <InfoItem icon={Heart} label="Blood Group" value={employee.blood_group || null} />
         </CardContent>
       </Card>
+
+      {/* Image Viewer */}
+      {employee.profile_image && (
+        <ImageViewer
+          src={employee.profile_image}
+          alt={employee.name}
+          open={showImageViewer}
+          onOpenChange={setShowImageViewer}
+        />
+      )}
       <div>
         <Card>
           <CardHeader>
@@ -864,14 +949,35 @@ function OverviewTab({ employee }: { employee: Employee }) {
 }
 
 function ContactTab({ employee }: { employee: Employee }) {
+  const handleAddToContacts = async () => {
+    try {
+      const shared = await shareContact(employee);
+      if (!shared) {
+        toast.success("Contact file downloaded");
+      }
+    } catch (error) {
+      console.error("Failed to add contact:", error);
+      toast.error("Failed to add contact");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Phone className="h-5 w-5" />
             Contact Information
           </CardTitle>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleAddToContacts}
+            className="gap-2"
+          >
+            <UserPlus className="h-4 w-4" />
+            Add to Contacts
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <InfoItem icon={Mail} label="Email" value={employee.email_id || null} copyable />
