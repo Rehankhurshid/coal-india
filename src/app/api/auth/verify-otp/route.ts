@@ -141,6 +141,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyOTP
     );
 
     await sessionManager.logLoginAttempt(employeeId, clientIP, userAgent, true);
+    
+    // Also log to login_logs table for admin tracking
+    try {
+      const AdminService = (await import('@/lib/services/admin.service')).AdminService;
+      await AdminService.logUserLogin(employeeId, employee.name, clientIP, userAgent);
+    } catch (error) {
+      console.log('[verify-otp] Failed to log to login_logs:', error);
+    }
 
     // Create secure HTTP-only cookies
     const response = NextResponse.json({

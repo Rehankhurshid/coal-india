@@ -40,6 +40,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<MeResponse
         grade,
         category,
         is_active,
+        is_admin,
         profile_image
       `)
       .eq('emp_code', authenticatedUser.employeeId)

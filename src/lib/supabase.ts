@@ -78,6 +78,7 @@ export interface Employee {
   discipline?: string
   pay_flag?: string
   is_active: boolean
+  is_admin?: boolean
   created_at: string
   updated_at: string
 }

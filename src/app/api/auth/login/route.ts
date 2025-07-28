@@ -46,7 +46,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
     const supabase = createServerClient();
     const { data: employee, error } = await supabase
       .from('employees')
-      .select('emp_code, name, phone_1, phone_2, is_active')
+      .select('emp_code, name, phone_1, phone_2, is_active, is_admin')
       .eq('emp_code', employeeId.toUpperCase())
       .eq('is_active', true)
       .single();
@@ -170,6 +170,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
       sessionId,
       phoneNumber: `****${cleanPhone.slice(-4)}`,
       message: 'OTP sent successfully',
+      isAdmin: employee.is_admin || false,
+      employeeName: employee.name,
       // Include OTP in response for development mode or test mode
       ...((process.env.NODE_ENV === 'development' || isTestMode) && { 
         otp, 
