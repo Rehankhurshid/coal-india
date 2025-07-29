@@ -12,9 +12,10 @@ import type { Employee } from '@/lib/supabase';
 interface EmployeeFormProps {
   employee?: Employee | null;
   onSuccess?: () => void;
+  isMobile?: boolean;
 }
 
-export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
+export function EmployeeForm({ employee, onSuccess, isMobile }: EmployeeFormProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const [formData, setFormData] = useState({
@@ -82,7 +83,7 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
         <div className="space-y-2">
           <Label htmlFor="emp_code">Employee Code*</Label>
           <Input
@@ -185,7 +186,7 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
             value={formData.gender}
             onValueChange={(value) => setFormData({ ...formData, gender: value })}
           >
-            <SelectTrigger id="gender">
+            <SelectTrigger id="gender" className="w-full">
               <SelectValue placeholder="Select gender" />
             </SelectTrigger>
             <SelectContent>
@@ -202,7 +203,7 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
             value={formData.blood_group}
             onValueChange={(value) => setFormData({ ...formData, blood_group: value })}
           >
-            <SelectTrigger id="blood_group">
+            <SelectTrigger id="blood_group" className="w-full">
               <SelectValue placeholder="Select blood group" />
             </SelectTrigger>
             <SelectContent>
@@ -266,7 +267,7 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
               setFormData({ ...formData, is_active: value === 'active' })
             }
           >
-            <SelectTrigger id="status">
+            <SelectTrigger id="status" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -285,7 +286,7 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
                 setFormData({ ...formData, is_admin: value === 'admin' })
               }
             >
-              <SelectTrigger id="admin">
+              <SelectTrigger id="admin" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -297,12 +298,21 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
         )}
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="submit" disabled={loading}>
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {employee ? 'Update' : 'Create'} Employee
-        </Button>
-      </div>
+      {isMobile ? (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t z-50">
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {employee ? 'Update' : 'Create'} Employee
+          </Button>
+        </div>
+      ) : (
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="submit" disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {employee ? 'Update' : 'Create'} Employee
+          </Button>
+        </div>
+      )}
     </form>
   );
 }

@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { LoginLogCard } from "./login-log-card";
 
 interface LoginLog {
   id: number;
@@ -103,7 +104,25 @@ export function LoginLogs() {
         </div>
       </div>
 
-      <ScrollArea className="h-[500px] rounded-md border">
+      {/* Mobile Card View */}
+      <div className="block sm:hidden">
+        <ScrollArea className="h-[500px]">
+          <div className="grid gap-3 pb-4">
+            {filteredLogs.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                No login logs found
+              </div>
+            ) : (
+              filteredLogs.map((log) => (
+                <LoginLogCard key={log.id} log={log} />
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Desktop Table View */}
+      <ScrollArea className="hidden sm:block h-[500px] rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>

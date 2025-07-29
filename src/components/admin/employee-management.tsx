@@ -5,13 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Upload, Download, Edit, Trash2, Shield, ShieldOff, Search, Loader2 } from 'lucide-react';
 import { EmployeeForm } from './employee-form';
 import { CSVUpload } from './csv-upload';
+import { EmployeeCard } from './employee-card';
 import type { Employee } from '@/lib/supabase';
+import { useEffect as useEffectHook } from 'react';
 
 export function EmployeeManagement() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -24,7 +27,17 @@ export function EmployeeManagement() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { toast } = useToast();
+
+  useEffectHook(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     fetchEmployees();
@@ -168,28 +181,56 @@ export function EmployeeManagement() {
               />
             </DialogContent>
           </Dialog>
-          <Dialog open={showEmployeeDialog} onOpenChange={setShowEmployeeDialog}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={() => setSelectedEmployee(null)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Employee
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>
-                  {selectedEmployee ? 'Edit Employee' : 'Add Employee'}
-                </DialogTitle>
-              </DialogHeader>
-              <EmployeeForm
-                employee={selectedEmployee}
-                onSuccess={() => {
-                  setShowEmployeeDialog(false);
-                  fetchEmployees();
-                }}
-              />
-            </DialogContent>
-          </Dialog>
+          {isMobile ? (
+            <Sheet open={showEmployeeDialog} onOpenChange={setShowEmployeeDialog}>
+              <SheetTrigger asChild>
+                <Button size="sm" onClick={() => setSelectedEmployee(null)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Employee
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-[90vh] overflow-hidden flex flex-col">
+                <SheetHeader className="pb-4">
+                  <SheetTitle>
+                    {selectedEmployee ? 'Edit Employee' : 'Add Employee'}
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto pb-20 px-4">
+                  <EmployeeForm
+                    employee={selectedEmployee}
+                    onSuccess={() => {
+                      setShowEmployeeDialog(false);
+                      fetchEmployees();
+                    }}
+                    isMobile={true}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          ) : (
+            <Dialog open={showEmployeeDialog} onOpenChange={setShowEmployeeDialog}>
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={() => setSelectedEmployee(null)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Employee
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>
+                    {selectedEmployee ? 'Edit Employee' : 'Add Employee'}
+                  </DialogTitle>
+                </DialogHeader>
+                <EmployeeForm
+                  employee={selectedEmployee}
+                  onSuccess={() => {
+                    setShowEmployeeDialog(false);
+                    fetchEmployees();
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -199,7 +240,26 @@ export function EmployeeManagement() {
         </div>
       ) : (
         <>
-          <div className="rounded-md border">
+          {/* Mobile Card View */}
+          <div className="block sm:hidden">
+            <div className="grid gap-3">
+              {employees.map((employee) => (
+                <EmployeeCard
+                  key={employee.emp_code}
+                  employee={employee}
+                  onEdit={() => {
+                    setSelectedEmployee(employee);
+                    setShowEmployeeDialog(true);
+                  }}
+                  onToggleAdmin={() => handleToggleAdmin(employee.emp_code)}
+                  onDelete={() => handleDeleteEmployee(employee.emp_code)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden sm:block rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -220,7 +280,7 @@ export function EmployeeManagement() {
                     <TableCell>{employee.name}</TableCell>
                     <TableCell>{employee.dept}</TableCell>
                     <TableCell>{employee.designation}</TableCell>
-                    <TableCell>{employee.email}</TableCell>
+                    <TableCell>{employee.email_id}</TableCell>
                     <TableCell>
                       <Badge variant={employee.is_active ? 'default' : 'secondary'}>
                         {employee.is_active ? 'Active' : 'Inactive'}
